@@ -30,6 +30,18 @@
 #define PHY_PAGE_NUM    20
 #define PHY_ADDR        32 // = PHY_PAGE_NUM + PAGE_OFFSET
 
+/*
+ * Others constants 
+ */ 
+#define PAGE_OFFSET_START 0
+#define PTE_ENTRY_START 12
+#define PMD_ENTRY_START 21
+#define PUD_ENTRY_START 30
+#define PGD_ENTRY_START 39
+
+
+
+
 /**Corresponds to 32bit memory word
  * 
  */

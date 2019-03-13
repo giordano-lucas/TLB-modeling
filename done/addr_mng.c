@@ -9,6 +9,7 @@
  */
 
 #include "addr.h"
+#include "addr_mng.h"
 #include <inttypes.h>
 #include "error.h"
 #include <stdio.h> // FILE
@@ -23,6 +24,38 @@ int isOfSizeAsked32(size_t size, uint32_t toTest){
 	}
 	return (toTest&mask) == toTest;
 }
+
+uint16_t mask16(size_t size){
+	uint16_t mask = 0;
+	if (size == 16)
+		return ~mask;
+	else {
+		mask = 1;
+		mask = (mask << size) - 1;
+		return mask;
+	}
+}
+uint32_t mask32(size_t size){
+	uint32_t mask = 0;
+	if (size == 32)
+		return ~mask;
+	else {
+		mask = 1;
+		mask = (mask << size) - 1;
+		return mask;
+	}
+}
+uint64_t mask64(size_t size){
+	uint64_t mask = 0;
+	if (size == 64)
+		return ~mask;
+	else {
+		mask = 1;
+		mask = (mask << size) - 1;
+		return mask;
+	}
+}
+
 
 //=========================================================================
 /**
@@ -49,6 +82,7 @@ int init_virt_addr(virt_addr_t * vaddr,
 					   vaddr->pmd_entry = pmd_entry;
 					   vaddr->page_offset = page_offset;
 					   vaddr->reserved = 0;
+					  return ERR_NONE;
 				   }
 
 //=========================================================================
@@ -58,7 +92,14 @@ int init_virt_addr(virt_addr_t * vaddr,
  * @param vaddr64 the virtual address provided as a 64-bit pattern
  * @return error code
  */
-int init_virt_addr64(virt_addr_t * vaddr, uint64_t vaddr64);
+int init_virt_addr64(virt_addr_t * vaddr, uint64_t vaddr64){
+	uint16_t pgd_entry = mask64(PGD_ENTRY) & (vaddr64 >> (PGD_ENTRY_START));
+	uint16_t pud_entry = mask64(PUD_ENTRY) & (vaddr64 >> (PUD_ENTRY_START));
+	uint16_t pmd_entry = mask64(PMD_ENTRY) & (vaddr64 >> (PMD_ENTRY_START));
+	uint16_t pte_entry = mask64(PTE_ENTRY) & (vaddr64 >> (PTE_ENTRY_START));
+	uint16_t page_offset = mask64(PAGE_OFFSET) & (vaddr64 >> (PAGE_OFFSET_START));
+	return init_virt_addr(vaddr,pgd_entry,pud_entry,pmd_entry,pte_entry,page_offset);
+}
 
 //=========================================================================
 /**
@@ -76,7 +117,10 @@ int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset);
  * @param vaddr the virtual address structure to be translated to a 64-bit pattern
  * @return the 64-bit pattern corresponding to the physical address
  */
-uint64_t virt_addr_t_to_uint64_t(const virt_addr_t * vaddr);
+uint64_t virt_addr_t_to_uint64_t(const virt_addr_t * vaddr){
+		M_REQUIRE_NON_NULL(vaddr);
+		return (virt_addr_t_to_virtual_page_number(vaddr) << PAGE_OFFSET) | vaddr->page_offset;
+	}
 
 //=========================================================================
 /**
@@ -84,7 +128,11 @@ uint64_t virt_addr_t_to_uint64_t(const virt_addr_t * vaddr);
  * @param vaddr the virtual address structure
  * @return the virtual page number corresponding to the virtual address
  */
-uint64_t virt_addr_t_to_virtual_page_number(const virt_addr_t * vaddr);
+uint64_t virt_addr_t_to_virtual_page_number(const virt_addr_t * vaddr){
+		M_REQUIRE_NON_NULL(vaddr);
+		uint64_t y = ( (uint64_t)(vaddr->pgd_entry) << PGD_ENTRY_START) | ((uint64_t)(vaddr->pud_entry) << PUD_ENTRY_START) | ( (uint64_t)(vaddr->pmd_entry) << PMD_ENTRY_START) | ((uint64_t)(vaddr->pte_entry) << PTE_ENTRY_START);
+		return y >> PAGE_OFFSET_START;
+	}
 
 //=========================================================================
 /**
