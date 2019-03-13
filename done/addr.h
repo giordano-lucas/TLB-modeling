@@ -30,12 +30,29 @@
 #define PHY_PAGE_NUM    20
 #define PHY_ADDR        32 // = PHY_PAGE_NUM + PAGE_OFFSET
 
-/* TODO WEEK 04:
- * Définir ici les types
- *      word_t,
- *      byte_t,
- *      pte_t,
- *      virt_addr_t
- *  et phy_addr_t
- * (et supprimer ces huit lignes de commentaire).
+/**Corresponds to 32bit memory word
+ * 
  */
+typedef uint32_t word_t;
+/**Corresponds to 8bit memory word
+ */
+typedef uint8_t byte_t;
+/**Word of a page table entry
+ */
+typedef uint32_t pte_t;
+/**Bitfield corresponding to the virtual address
+ */
+typedef struct{
+	uint16_t reserved : VIRT_ADDR_RES;
+	uint16_t pgd_entry : PGD_ENTRY;
+	uint16_t pmd_entry : PMD_ENTRY;
+	uint16_t pud_entry : PUD_ENTRY;
+	uint16_t pte_entry : PTE_ENTRY;
+	uint16_t page_offset : PAGE_OFFSET;
+}virt_addr_t;
+/**Bitfield corresponding to the physical address
+ */
+typedef struct{
+	uint32_t phy_page_num : PHY_PAGE_NUM;
+	uint16_t page_offset : PAGE_OFFSET;
+}phy_addr_t;
