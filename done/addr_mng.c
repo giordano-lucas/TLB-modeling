@@ -15,16 +15,9 @@
 #include <stdio.h> // FILE
 
 
-int isOfSizeAsked32(size_t size, uint32_t toTest){
-	uint32_t mask = 0;
-	if(size == 32){
-		mask = ~mask;
-	}else{
-		mask = (1<<size)-1;
-	}
-	return (toTest&mask) == toTest;
-}
-
+/*
+ * Creates a 16 bits mask of size "size" (nb of 1's)
+ */
 uint16_t mask16(size_t size){
 	uint16_t mask = 0;
 	if (size == 16)
@@ -35,6 +28,10 @@ uint16_t mask16(size_t size){
 		return mask;
 	}
 }
+
+/*
+ * Creates a 32 bits mask of size "size" (nb of 1's)
+ */
 uint32_t mask32(size_t size){
 	uint32_t mask = 0;
 	if (size == 32)
@@ -45,6 +42,9 @@ uint32_t mask32(size_t size){
 		return mask;
 	}
 }
+/*
+ * Creates a 64 bits mask of size "size" (nb of 1's)
+ */
 uint64_t mask64(size_t size){
 	uint64_t mask = 0;
 	if (size == 64)
@@ -55,18 +55,36 @@ uint64_t mask64(size_t size){
 		return mask;
 	}
 }
+/*
+ * Tests if "toTest" is on Size	bits (= not greater that 2^size -1)
+ */
+int isOfSizeAsked32(size_t size, uint32_t toTest){
+	uint32_t mask = mask32(size);
+	return (toTest&mask) == toTest;
+}
 
 
 //=========================================================================
 /**
  * @brief Initialize virt_addr_t structure. Reserved bits are zeroed.
  * @param vaddr (modified) the virtual address structure to be initialized
- * @param pgd_entry the value of the PGD offset of the virtual address
+ * @param pgd_entry the value of the PGD offset of the virtual address  
  * @param pud_entry the value of the PUD offset of the virtual address
  * @param pmd_entry the value of the PMD offset of the virtual address
  * @param pte_entry the value of the PT  offset of the virtual address
  * @param page_offset the value of the physical memory page offset of the virtual address
  * @return error code
+ * 
+ * Requirements:
+ * 
+ * @param vaddr : must be non null
+ * @param pgd_entry : must be of 9 bits
+ * @param pud_entry : must be of 9 bits
+ * @param pmd_entry : must be of 9 bits
+ * @param pte_entry : must be of 9 bits
+ * @param page_offset : must be of 12 bits
+ * 
+ * 
  */
 int init_virt_addr(virt_addr_t * vaddr,
                    uint16_t pgd_entry,
@@ -76,6 +94,7 @@ int init_virt_addr(virt_addr_t * vaddr,
 					   M_REQUIRE(isOfSizeAsked32(PUD_ENTRY, pud_entry), ERR_BAD_PARAMETER, "Pud entry size = %" PRIu16 " superior to 9", pud_entry);
 					   M_REQUIRE(isOfSizeAsked32(PMD_ENTRY, pmd_entry), ERR_BAD_PARAMETER, "Pmd entry size = %" PRIu16 " superior to 9", pmd_entry);
 					   M_REQUIRE(isOfSizeAsked32(PTE_ENTRY, pte_entry), ERR_BAD_PARAMETER, "Pte entry size = %" PRIu16 " superior to 9", pte_entry);
+					   M_REQUIRE_NON_NULL(vaddr);
 					   vaddr->pgd_entry = pgd_entry;
 					   vaddr->pud_entry = pud_entry;
 					   vaddr->pte_entry = pte_entry;
@@ -91,6 +110,10 @@ int init_virt_addr(virt_addr_t * vaddr,
  * @param vaddr (modified) the virtual address structure to be initialized
  * @param vaddr64 the virtual address provided as a 64-bit pattern
  * @return error code
+ * 
+ * Requirements:
+ * 
+ * @param vaddr : must be non null
  */
 int init_virt_addr64(virt_addr_t * vaddr, uint64_t vaddr64){
 	uint16_t pgd_entry = mask64(PGD_ENTRY) & (vaddr64 >> (PGD_ENTRY_START));
@@ -116,6 +139,15 @@ int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset);
  * @brief Convert virt_addr_t structure to uint64_t. It's the reciprocal of init_virt_addr64().
  * @param vaddr the virtual address structure to be translated to a 64-bit pattern
  * @return the 64-bit pattern corresponding to the physical address
+ * 
+ * Requirements:
+ * 
+ * @param vaddr : must be non null
+ * 
+ * 
+ * ---------------------------------
+ * 
+ * As mentionned in the documentation this function just shifts the result of virt_addr_t_to_virtual_page_number() and adds the page_offset bits
  */
 uint64_t virt_addr_t_to_uint64_t(const virt_addr_t * vaddr){
 		M_REQUIRE_NON_NULL(vaddr);
@@ -127,6 +159,15 @@ uint64_t virt_addr_t_to_uint64_t(const virt_addr_t * vaddr){
  * @brief Extract virtual page number from virt_addr_t structure.
  * @param vaddr the virtual address structure
  * @return the virtual page number corresponding to the virtual address
+ * 
+ * Requirements:
+ * 
+ * @param vaddr : must be non null
+ * --------------------------------------
+ * 
+ * Each value of vaddr is casted to a 64 bits value before shifting to ensure that the shifting process will not result in a 0 value 
+ * (because intitaly it's a 16 bit value that is shifted by up to 39 bits (>16 bits))
+ * 
  */
 uint64_t virt_addr_t_to_virtual_page_number(const virt_addr_t * vaddr){
 		M_REQUIRE_NON_NULL(vaddr);
