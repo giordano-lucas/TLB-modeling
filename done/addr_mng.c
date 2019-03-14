@@ -39,16 +39,19 @@ int init_virt_addr(virt_addr_t * vaddr,
                    uint16_t pgd_entry,
                    uint16_t pud_entry, uint16_t pmd_entry,
                    uint16_t pte_entry, uint16_t page_offset){
-					   M_REQUIRE(isOfSizeAsked32(PGD_ENTRY, pgd_entry), ERR_BAD_PARAMETER, "Pgd entry size = %" PRIu16 " superior to 9", pgd_entry);
-					   M_REQUIRE(isOfSizeAsked32(PUD_ENTRY, pud_entry), ERR_BAD_PARAMETER, "Pud entry size = %" PRIu16 " superior to 9", pud_entry);
-					   M_REQUIRE(isOfSizeAsked32(PMD_ENTRY, pmd_entry), ERR_BAD_PARAMETER, "Pmd entry size = %" PRIu16 " superior to 9", pmd_entry);
-					   M_REQUIRE(isOfSizeAsked32(PTE_ENTRY, pte_entry), ERR_BAD_PARAMETER, "Pte entry size = %" PRIu16 " superior to 9", pte_entry);
+					   M_REQUIRE(isOfSizeAsked32(PGD_ENTRY, pgd_entry), ERR_BAD_PARAMETER, "Pgd entry = %" PRIu16 " not on 9 bits", pgd_entry);
+					   M_REQUIRE(isOfSizeAsked32(PUD_ENTRY, pud_entry), ERR_BAD_PARAMETER, "Pud entry = %" PRIu16 " not on 9 bits", pud_entry);
+					   M_REQUIRE(isOfSizeAsked32(PMD_ENTRY, pmd_entry), ERR_BAD_PARAMETER, "Pmd entry = %" PRIu16 " not on 9 bits", pmd_entry);
+					   M_REQUIRE(isOfSizeAsked32(PTE_ENTRY, pte_entry), ERR_BAD_PARAMETER, "Pte entry = %" PRIu16 " not on 9 bits", pte_entry);
+					   M_REQUIRE(isOfSizeAsked32(PAGE_OFFSET, page_offset), ERR_BAD_PARAMETER, "Page_offset = %" PRIu16 " not on 12 bits", page_offset);
+					   M_REQUIRE_NON_NULL(vaddr);
 					   vaddr->pgd_entry = pgd_entry;
 					   vaddr->pud_entry = pud_entry;
 					   vaddr->pte_entry = pte_entry;
 					   vaddr->pmd_entry = pmd_entry;
 					   vaddr->page_offset = page_offset;
 					   vaddr->reserved = 0;
+					   return ERR_NONE;
 				   }
 
 //=========================================================================
@@ -68,7 +71,15 @@ int init_virt_addr64(virt_addr_t * vaddr, uint64_t vaddr64);
  * @param page_offset the index (offset) inside the physical page
  * @return error code
  */
-int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset);
+int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset){
+					   M_REQUIRE(isOfSizeAsked32(PAGE_OFFSET, page_offset), ERR_BAD_PARAMETER, "Page offset = %" PRIu16 " not on 12 bits", pgd_entry);
+					   M_REQUIRE_NON_NULL(paddr);
+					   
+					   paddr->phy_page_num = (page_begin >> PAGE_OFFSET);
+					   paddr->page_offset = page_offset;
+					   
+					   return ERR_NONE;
+}
 
 //=========================================================================
 /**
@@ -76,7 +87,10 @@ int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset);
  * @param vaddr the virtual address structure to be translated to a 64-bit pattern
  * @return the 64-bit pattern corresponding to the physical address
  */
-uint64_t virt_addr_t_to_uint64_t(const virt_addr_t * vaddr);
+uint64_t virt_addr_t_to_uint64_t(const virt_addr_t * vaddr){
+	M_REQUIRE_NON_NULL(vaddr);
+	return (virt_addr_t_to_virtual_page_number(vaddr)<< PAGE_OFFSET)|vaddr->page_offset; 
+}
 
 //=========================================================================
 /**
@@ -94,6 +108,7 @@ uint64_t virt_addr_t_to_virtual_page_number(const virt_addr_t * vaddr);
  * @return number of printed characters
  */
 int print_virtual_address(FILE* where, const virt_addr_t* vaddr){
+	M_REQUIRE_NON_NULL(vaddr);
 	return fprintf(where, "PGD=0x%" PRIX16 "; PUD=0x%" PRIX16 "; PMD=0x%" PRIX16 "; PTE=0x%" PRIX16 "; offset=0x%" PRIX16, vaddr->pgd_entry, vaddr->pud_entry, vaddr->pmd_entry, vaddr->pte_entry, vaddr->page_offset);
 }
 //=========================================================================
@@ -103,4 +118,7 @@ int print_virtual_address(FILE* where, const virt_addr_t* vaddr){
  * @param paddr the physical address to be printed
  * @return number of printed characters
  */
-int print_physical_address(FILE* where, const phy_addr_t* paddr);
+int print_physical_address(FILE* where, const phy_addr_t* paddr){
+	M_REQUIRE_NON_NULL(paddr);
+	return fprintf(where, "page num=0x%" PRIX32 "; offset=0x%" PRIX32, paddr->phy_page_num, paddr->page_offset);
+}
