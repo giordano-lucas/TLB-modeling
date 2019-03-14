@@ -19,9 +19,9 @@ CFLAGS = -std=c11 -Wall -Wpedantic -g
 LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
 
 all:: test-addr 
-test-addr : addr_mng.o
+test-addr :: tests.h util.h addr.h addr_mng.o
 
-addr_mng.o : addr_mng.c addr_mng.h
+addr_mng.o :: addr_mng.c addr_mng.h error.c error.h
 
 
 # ----------------------------------------------------------------------
