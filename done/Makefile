@@ -18,8 +18,10 @@ CFLAGS = -std=c11 -Wall -Wpedantic -g
 # all those libs are required on Debian, feel free to adapt it to your box
 LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
 
-all:: test-addr
+all:: test-addr 
+test-addr : addr_mng.o
 
+addr_mng.o : addr_mng.c addr_mng.h
 
 
 # ----------------------------------------------------------------------
