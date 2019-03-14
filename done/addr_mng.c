@@ -15,6 +15,7 @@
 #include <stdio.h> // FILE
 
 
+
 /*
  * Creates a 16 bits mask of size "size" (nb of 1's)
  */
@@ -97,6 +98,7 @@ int init_virt_addr(virt_addr_t * vaddr,
 					   M_REQUIRE(isOfSizeAsked32(PAGE_OFFSET, page_offset), ERR_BAD_PARAMETER, "Page offset size = %" PRIu16 " superior to 12", page_offset);
 					   
 					   M_REQUIRE_NON_NULL(vaddr);
+					   
 					   vaddr->pgd_entry = pgd_entry;
 					   vaddr->pud_entry = pud_entry;
 					   vaddr->pte_entry = pte_entry;
