@@ -64,7 +64,12 @@ START_TEST(addr_basic_test_1)
         uint16_t page_offset = (uint16_t) generate_Nbit_random(PAGE_OFFSET);
 
         (void)init_virt_addr(&vaddr, pgd_entry, pud_entry, pmd_entry, pte_entry, page_offset);
+		FILE* sor = fopen("testing.dat", "w");
+		print_virtual_address(sor, &vaddr);
+		fprintf(sor, "\nPGD=0x%" PRIX16 "; PUD=0x%" PRIX16 "; PMD=0x%" PRIX16 "; PTE=0x%" PRIX16 "; offset=0x%" PRIX16, pgd_entry, pud_entry, pmd_entry, pte_entry, page_offset);
 
+		fclose(sor);
+        
         ck_assert_int_eq(vaddr.pgd_entry, pgd_entry);
         ck_assert_int_eq(vaddr.pud_entry, pud_entry);
         ck_assert_int_eq(vaddr.pmd_entry, pmd_entry);
