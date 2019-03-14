@@ -6,7 +6,7 @@
  * @date Jan 2019
  */
 
-// ------------------------------------------------------------
+// -------------------------------------------------------------
 // for thread-safe randomization
 #include <time.h>
 #include <stdlib.h>
@@ -47,8 +47,38 @@ uint64_t generate_Nbit_random(int n)
 
 START_TEST(addr_basic_test_1)
 {
-    puts("Ecrivez ici vos tests et SUPPRIMEZ ces puts.");
-    puts("Par exemple :");
+    puts("==================== Start custom tests ==========================");
+    
+     puts("---------- Init_virt_addr64 -------------");
+    virt_addr_t vaddr2;
+    zero_init_var(vaddr2);
+    REPEAT(100) {
+        uint64_t pgd_entry   = (uint64_t) generate_Nbit_random(PGD_ENTRY);
+        uint64_t pud_entry   = (uint64_t) generate_Nbit_random(PUD_ENTRY);
+        uint64_t pmd_entry   = (uint64_t) generate_Nbit_random(PMD_ENTRY);
+        uint64_t pte_entry   = (uint64_t) generate_Nbit_random(PTE_ENTRY);
+        uint64_t page_offset = (uint64_t) generate_Nbit_random(PAGE_OFFSET);
+        //pud_entry = 511;
+        uint64_t vaddr64 = ( pgd_entry << PGD_ENTRY_START) | (pud_entry << PUD_ENTRY_START) | (pmd_entry << PMD_ENTRY_START) | (pte_entry << PTE_ENTRY_START) | page_offset;
+
+		
+        (void)init_virt_addr64(&vaddr2, vaddr64);
+
+        ck_assert_int_eq(vaddr2.pgd_entry, pgd_entry);
+        ck_assert_int_eq(vaddr2.pud_entry, pud_entry);
+        ck_assert_int_eq(vaddr2.pmd_entry, pmd_entry);
+        ck_assert_int_eq(vaddr2.pte_entry, pte_entry);
+        ck_assert_int_eq(vaddr2.page_offset, page_offset);
+        
+        puts("-------- virt_addr_t_to_uint64_t --------");
+        print_virtual_address(stdout,&vaddr2);
+		uint64_t returnValue64 = virt_addr_t_to_uint64_t(&vaddr2);
+		//ck_assert_int_eq(returnValue64, vaddr64);
+    }
+    
+	
+    
+    puts("===================== End custiom tests ==========================");
 // ------------------------------------------------------------
     virt_addr_t vaddr;
     zero_init_var(vaddr);

@@ -15,6 +15,7 @@
 #include <stdio.h> // FILE
 
 
+
 /*
  * Creates a 16 bits mask of size "size" (nb of 1's)
  */
@@ -95,6 +96,7 @@ int init_virt_addr(virt_addr_t * vaddr,
 					   M_REQUIRE(isOfSizeAsked32(PMD_ENTRY, pmd_entry), ERR_BAD_PARAMETER, "Pmd entry size = %" PRIu16 " superior to 9", pmd_entry);
 					   M_REQUIRE(isOfSizeAsked32(PTE_ENTRY, pte_entry), ERR_BAD_PARAMETER, "Pte entry size = %" PRIu16 " superior to 9", pte_entry);
 					   M_REQUIRE_NON_NULL(vaddr);
+					   
 					   vaddr->pgd_entry = pgd_entry;
 					   vaddr->pud_entry = pud_entry;
 					   vaddr->pte_entry = pte_entry;
