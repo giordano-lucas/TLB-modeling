@@ -71,9 +71,10 @@ START_TEST(addr_basic_test_1)
         ck_assert_int_eq(vaddr2.page_offset, page_offset);
         
         puts("-------- virt_addr_t_to_uint64_t --------");
-        print_virtual_address(stdout,&vaddr2);
+        //print_virtual_address(stdout,&vaddr2);
 		uint64_t returnValue64 = virt_addr_t_to_uint64_t(&vaddr2);
-		//ck_assert_int_eq(returnValue64, vaddr64);
+		//printf("====== returnV = %" PRIX64 " and v = %" PRIX64 "\n", returnValue64,vaddr64);
+		ck_assert_int_eq(returnValue64, vaddr64);
     }
     
 	

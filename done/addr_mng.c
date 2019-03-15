@@ -1,12 +1,5 @@
 #pragma once
 
-/**
- * @file addr_mng.h
- * @brief address management functions (init, print, etc.)
- *
- * @author Mirjana Stojilovic
- * @date 2018-19
- */
 
 #include "addr.h"
 #include "addr_mng.h"
@@ -67,14 +60,8 @@ int isOfSizeAsked32(size_t size, uint32_t toTest){
 
 //=========================================================================
 /**
- * @brief Initialize virt_addr_t structure. Reserved bits are zeroed.
- * @param vaddr (modified) the virtual address structure to be initialized
- * @param pgd_entry the value of the PGD offset of the virtual address  
- * @param pud_entry the value of the PUD offset of the virtual address
- * @param pmd_entry the value of the PMD offset of the virtual address
- * @param pte_entry the value of the PT  offset of the virtual address
- * @param page_offset the value of the physical memory page offset of the virtual address
- * @return error code
+ * Initialize virt_addr_t structure. Reserved bits are zeros.
+ *
  * 
  * Requirements:
  * 
@@ -111,10 +98,9 @@ int init_virt_addr(virt_addr_t * vaddr,
 
 //=========================================================================
 /**
- * @brief Initialize virt_addr_t structure from uint64_t. Reserved bits are zeros.
- * @param vaddr (modified) the virtual address structure to be initialized
- * @param vaddr64 the virtual address provided as a 64-bit pattern
- * @return error code
+ * @brief Initialize virt_addr_t structure from uint64_t. Reserved bits are zeros,
+ * according to this format : 63-RESERVED-48|47-PGD-39|38-PUD-30|29-PMD-21|20-PTE-12|11-offset-0|
+ * 
  * 
  * Requirements:
  * 
@@ -131,11 +117,15 @@ int init_virt_addr64(virt_addr_t * vaddr, uint64_t vaddr64){
 
 //=========================================================================
 /**
- * @brief Initialize phy_addr_t structure.
- * @param paddr (modified) the physical address structure to be initialized
- * @param page_begin the address of the top of the physical page
- * @param page_offset the index (offset) inside the physical page
- * @return error code
+ * @brief Initialize phy_addr_t structure,
+ * according to this format :
+ *  page_begin(bits 31 to 12) | page_offset
+ * 
+ * Requirements:
+ * 
+ * @param vaddr : must be non null
+ * @param page_offset : must be of 12 bits
+ * 
  */
 int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset){
 					   M_REQUIRE(isOfSizeAsked32(PAGE_OFFSET, page_offset), ERR_BAD_PARAMETER, "Page offset = %" PRIu16 " not on 12 bits", pgd_entry);
@@ -151,8 +141,6 @@ int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset){
 //=========================================================================
 /**
  * @brief Convert virt_addr_t structure to uint64_t. It's the reciprocal of init_virt_addr64().
- * @param vaddr the virtual address structure to be translated to a 64-bit pattern
- * @return the 64-bit pattern corresponding to the physical address
  * 
  * Requirements:
  * 
@@ -171,8 +159,6 @@ uint64_t virt_addr_t_to_uint64_t(const virt_addr_t * vaddr){
 //=========================================================================
 /**
  * @brief Extract virtual page number from virt_addr_t structure.
- * @param vaddr the virtual address structure
- * @return the virtual page number corresponding to the virtual address
  * 
  * Requirements:
  * 
@@ -186,25 +172,19 @@ uint64_t virt_addr_t_to_uint64_t(const virt_addr_t * vaddr){
 uint64_t virt_addr_t_to_virtual_page_number(const virt_addr_t * vaddr){
 		M_REQUIRE_NON_NULL(vaddr);
 		uint64_t y = ( (uint64_t)(vaddr->pgd_entry) << PGD_ENTRY_START) | ((uint64_t)(vaddr->pud_entry) << PUD_ENTRY_START) | ( (uint64_t)(vaddr->pmd_entry) << PMD_ENTRY_START) | ((uint64_t)(vaddr->pte_entry) << PTE_ENTRY_START);
-		return y >> PAGE_OFFSET_START;
+		return y >> PAGE_OFFSET;
 	}
 
 //=========================================================================
 /**
- * @brief print a virtual address to stream
- * @param where the stream where to print to
- * @param vaddr the virtual address to be printed
- * @return number of printed characters
+ * @brief print a virtual address the stream "where"
  */
 int print_virtual_address(FILE* where, const virt_addr_t* vaddr){
 	return fprintf(where, "PGD=0x%" PRIX16 "; PUD=0x%" PRIX16 "; PMD=0x%" PRIX16 "; PTE=0x%" PRIX16 "; offset=0x%" PRIX16, vaddr->pgd_entry, vaddr->pud_entry, vaddr->pmd_entry, vaddr->pte_entry, vaddr->page_offset);
 }
 //=========================================================================
 /**
- * @brief print a physical address to stream
- * @param where the stream where to print to
- * @param paddr the physical address to be printed
- * @return number of printed characters
+ * @brief print a physical address the stream "where"
  */
 int print_physical_address(FILE* where, const phy_addr_t* paddr){
 	M_REQUIRE_NON_NULL(paddr);

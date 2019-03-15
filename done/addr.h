@@ -57,8 +57,8 @@ typedef uint32_t pte_t;
 typedef struct{
 	uint16_t reserved : VIRT_ADDR_RES;
 	uint16_t pgd_entry : PGD_ENTRY;
-	uint16_t pmd_entry : PMD_ENTRY;
 	uint16_t pud_entry : PUD_ENTRY;
+	uint16_t pmd_entry : PMD_ENTRY;
 	uint16_t pte_entry : PTE_ENTRY;
 	uint16_t page_offset : PAGE_OFFSET;
 }virt_addr_t;
