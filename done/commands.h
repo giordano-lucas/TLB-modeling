@@ -19,8 +19,52 @@
  *      command_t
  *  et program_t
  * (et supprimer ces sept lignes de commentaire).
+ * 
+ * 
+ * 
+ * 
  */
+ /*
+  *type énuméré représentant les sortes d'accès possibles à la mémoire 
+  * - READ (accès en lecture)
+  * - WRITE (accès en écriture)
+  */
+ typedef enum {
+	 READ, WRITE
+	 } command_word_t;
 
+/*
+ * structure contenant les champs suivants :
+ *
+ * - order 		: mode d'accès désiré à la mémoire (lecture ou écriture) ;
+ * - type 		: type d'information recherchée (instruction ou donnée) ;
+ * - data_size	: taille, en octets, des données manipulées (mot ou octet) ;
+ * - write_data : contiendra, lorsque nécessaire, la valeur à écrire ;
+ * - vaddr		: adresse virtuelle où accéder
+ */
+ typedef struct {
+	 command_word_t order;
+	 mem_access_t type;
+	 size_t data_size;
+	 word_t write_data;
+	 virt_addr_t vaddr;
+	 } command_t;
+	 
+#define MAX_SIZE_LISTING 100
+ 
+ 
+ /*
+  * structure contenant les champs suivants :
+  *
+  * - listing 	: tableau statique de 100 command_t
+  * - nb_lines	: nombre de lignes du programme
+  * - allocated : la taille allouée à listing
+  */
+ typedef struct {
+	 command_t listing[MAX_SIZE_LISTING];
+	 size_t nb_lines;
+	 size_t allocated;
+	 } program_t;
 /**
  * @brief A useful macro to loop over all program lines.
  * X is the name of the variable to be used for the line;
