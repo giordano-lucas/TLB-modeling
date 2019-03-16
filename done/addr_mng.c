@@ -1,5 +1,3 @@
-#pragma once
-
 
 #include "addr.h"
 #include "addr_mng.h"
