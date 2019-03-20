@@ -80,9 +80,14 @@ int program_print(FILE* output, const program_t* program){
 	M_REQUIRE_NON_NULL(output);
 	for(int i = 0; i< program->nb_lines; i++){
 		command_t com = program->listing[i];
+		M_REQUIRE(com.order == READ || com.order == WRITE, ERR_BAD_PARAMETER, "ORDER is neither read nor write");
+		M_REQUIRE(com.type == INSTRUCTION || com.type == DATA, ERR_BAD_PARAMETER, "TYPE is neither Instruction nor Data");
+		M_REQUIRE(com.data_size == 1 || com.data_size == 4, ERR_BAD_PARAMETER, "DATA_SIZE is neither 1 nor 4");
+		
+		
 		char ord = (com.order == READ) ? 'R' : 'W';
 		char type = (com.type == INSTRUCTION) ? 'I' : 'D';
-		char size = (com.data_size == 8) ? 'B' : 'W';
+		char size = (com.data_size == 1) ? 'B' : 'W';
 		uint64_t addr = virt_addr_t_to_uint64_t(&com.vaddr);
 		fprintf(output, "%c %c", ord, type);
 		if(type == 'D'){ //if it is data
@@ -175,15 +180,10 @@ size_t readUntilNextWhiteSpace(FILE* input, char buffer[]){
 		
 	return nbOfBytes;
 	}
-size_t handleRead(command_t* command, FILE* input){
-	//CAS LIMITE READ
-	
-	
-	//Suppose qu'il a déjà lu le R / W
-	command->order = READ;
+size_t handleTypeSize(command_t* command, FILE* input){
 	char buffer[MAX_SIZE_BUFFER];
 	size_t s = readUntilNextWhiteSpace(input, buffer);
-	M_REQUIRE(s <= 2, ERR_BAD_PARAMETER, "SIZE OF TYPE MUST BE INF TO 2");
+	M_REQUIRE(s <= 2 && s>0, ERR_BAD_PARAMETER, "SIZE OF TYPE MUST BE INF TO 2");
 	buffer[s] = '\0';
 	mem_access_t t;
 	size_t data_s;
@@ -205,7 +205,16 @@ size_t handleRead(command_t* command, FILE* input){
 	buffer[s] = ' ';
 	command->type = t;
 	command->data_size = data_s;
+	return ERR_NONE;
+}
+size_t handleRead(command_t* command, FILE* input){
+	//Suppose qu'il a déjà lu le R / W
+	command->order = READ;
+	handleTypeSize(command, input);
+	size_t s;
+	char buffer[MAX_SIZE_BUFFER];
 	command->write_data = 0;
+	//===================VIRT ADDR=================================
 	s = readUntilNextWhiteSpace(input, buffer);
 	M_REQUIRE(s >= 4, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4");
 	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x");
@@ -218,9 +227,37 @@ size_t handleRead(command_t* command, FILE* input){
 	init_virt_addr64(&(command->vaddr), virt);
 	return ERR_NONE;
 }
-void handleWrite(command_t* command){
-	//CAS LIMITE WRITE
+size_t handleWrite(command_t* command, FILE* input){
+	//Suppose qu'il a déjà lu le R / W
+	command->order = WRITE;
+	handleTypeSize(command, input);
+	char buffer[MAX_SIZE_BUFFER];
+	size_t s;
+	//=======================WRITE_DATA=========================
+	s = readUntilNextWhiteSpace(input, buffer);
+	M_REQUIRE(s >= 4 && s <= 8+3, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4");
+	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x");
+	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x");
+	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x");
+	for(int i =0; i < 3; i++){
+		buffer[i] = ' ';
+	}
+	command->write_data = (word_t) strtoul(buffer, (char **)NULL, 16); //unsigned long long to uint64
 	
+	
+	
+	//=======================VIRT ADDR==========================
+	s = readUntilNextWhiteSpace(input, buffer);
+	M_REQUIRE(s >= 4 &&s <= 16+3, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4");
+	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x");
+	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x");
+	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x");
+	for(int i =0; i < 3; i++){
+		buffer[i] = ' ';
+	}
+	uint64_t virt = (uint64_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64
+	init_virt_addr64(&(command->vaddr), virt);
+	return ERR_NONE;
 }
 /**
  * @brief Read a program (list of commands) from a file.
@@ -233,5 +270,6 @@ void handleWrite(command_t* command){
 int program_read(const char* filename, program_t* program){
 	M_REQUIRE_NON_NULL(filename);
 	M_REQUIRE_NON_NULL(program);
+	//USE readuntilnextwhitespace once to determine if read or write
 	return ERR_NONE;
 	}
