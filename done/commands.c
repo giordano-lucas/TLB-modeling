@@ -6,7 +6,9 @@
 #include "commands.h"
 #include <stdio.h>
 #include <inttypes.h>
-
+#include <stdbool.h>
+#include <ctype.h>
+#include <stdlib.h>
 
 /**
  * @brief "Constructor" for program_t: initialize a program.
@@ -25,15 +27,6 @@ int program_init(program_t* program){
 	init_virt_addr(&v,0,0,0,0,0);
 	command_t command0 = {0,0,0,0,v}; 
 	for (int i = 0 ; i < program->allocated ; ++i){
-		/*command_t* c = &((program->listing)[i]);
-		c->order = 0;
-		c->type = 0;
-		c->data_size = 0;
-		c->write_data = 0;
-		virt_addr_t v;
-		init_virt_addr(&v,0,0,0,0,0);
-		c->vaddr = v;
-		*/
 		(program->listing)[i] = command0;
 		
 	}
@@ -161,14 +154,74 @@ int program_add_command(program_t* program, const command_t* command){
 	
 	
 //==================================== READ PART ===========================================
-
+#define MAX_SIZE_BUFFER 20
 command_t readCommand(FILE* input);
-int readUntilNextWhiteSpace(FILE* input){
+size_t readUntilNextWhiteSpace(FILE* input, char buffer[]){
 	M_REQUIRE_NON_NULL(input);
-	
+	int c = 0; 
+	bool hasReadOneNonWhiteSpace = false; // flag to say that we need to read at lest one non white space char to exit the function
+	size_t nbOfBytes = 0;
+	while (!feof(input) && !ferror(input) && !(isspace(c) && hasReadOneNonWhiteSpace)){
+		c = fgetc(input);
+		if (!isspace(c) || c == '\n'){
+		    hasReadOneNonWhiteSpace = true;
+			if (nbOfBytes >= MAX_SIZE_BUFFER){
+				return ERR_IO;
+				}
+			buffer[nbOfBytes] = c;
+			nbOfBytes++;
+			}
+		}
+		
+	return nbOfBytes;
 	}
-void handleRead(*command_t command);
-void handleWrite(*command_t command);
+size_t handleRead(command_t* command, FILE* input){
+	//CAS LIMITE READ
+	
+	
+	//Suppose qu'il a déjà lu le R / W
+	command->order = READ;
+	char buffer[MAX_SIZE_BUFFER];
+	size_t s = readUntilNextWhiteSpace(input, buffer);
+	M_REQUIRE(s <= 2, ERR_BAD_PARAMETER, "SIZE OF TYPE MUST BE INF TO 2");
+	buffer[s] = '\0';
+	mem_access_t t;
+	size_t data_s;
+	if(strcmp(buffer, "I") == 0){
+		t = INSTRUCTION;
+		data_s = sizeof(word_t);
+	}
+	else if(strcmp(buffer,"DB") == 0){
+		t = DATA;
+		data_s = 1;
+	}	
+	else if(strcmp(buffer,"DW") == 0){
+		t = DATA;
+		data_s = 4;
+	}
+	else{
+		return ERR_IO;
+	}
+	buffer[s] = ' ';
+	command->type = t;
+	command->data_size = data_s;
+	command->write_data = 0;
+	s = readUntilNextWhiteSpace(input, buffer);
+	M_REQUIRE(s >= 4, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4");
+	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x");
+	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x");
+	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x");
+	for(int i =0; i < 3; i++){
+		buffer[i] = ' ';
+	}
+	uint64_t virt = (uint64_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64
+	init_virt_addr64(&(command->vaddr), virt);
+	return ERR_NONE;
+}
+void handleWrite(command_t* command){
+	//CAS LIMITE WRITE
+	
+}
 /**
  * @brief Read a program (list of commands) from a file.
  * 
