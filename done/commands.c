@@ -160,7 +160,32 @@ int program_add_command(program_t* program, const command_t* command){
 	
 //==================================== READ PART ===========================================
 #define MAX_SIZE_BUFFER 20
-command_t readCommand(FILE* input);
+command_t readCommand(FILE* input){
+	M_REQUIRE_NON_NULL(input);
+	
+	// create empty command
+	virt_addr_t v;
+	init_virt_addr(&v,0,0,0,0,0);
+	command_t command = {0,0,0,0,v}; 
+	
+	// prepare for reading R or W
+	char buffer[MAX_SIZE_BUFFER];
+	size_t sizeRead = readUntilNextWhiteSpace(input,buffer);
+	M_REQUIRE(sizeRead == 1, ERR_IO, "First character of a line must be 1 (and then followed by a space(' '))");
+	
+	switch (buffer[0]) {
+        case 'R':
+            handleRead(&command);
+            break;
+        case 'W':
+			handleWrite(&command);
+			break;
+        default:
+			M_REQUIRE_NON_NULL_CUSTOM_ERR(NULL,ERR_IO, "First character of a line should be R or W"); 
+            break;
+    }
+    return command
+	}
 size_t readUntilNextWhiteSpace(FILE* input, char buffer[]){
 	M_REQUIRE_NON_NULL(input);
 	int c = 0; 
@@ -270,6 +295,14 @@ size_t handleWrite(command_t* command, FILE* input){
 int program_read(const char* filename, program_t* program){
 	M_REQUIRE_NON_NULL(filename);
 	M_REQUIRE_NON_NULL(program);
-	//USE readuntilnextwhitespace once to determine if read or write
+	File* file= NULL;
+	file = fopen(filename);
+	if (file == NULL) return ERR_IO;
+	program_init(program);
+	
+	
+	while (!feof(file) && !ferror(file) {
+		program_add_command(program, readCommand(file))
+		}
 	return ERR_NONE;
 	}
