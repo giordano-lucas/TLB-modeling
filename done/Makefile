@@ -10,7 +10,7 @@ CFLAGS = -std=c11 -Wall -Wpedantic -g
 # -Wconversion -Wunreachable-code
 
 # uncomment if you want to add DEBUG flag
-# CPPFLAGS += -DDEBUG
+CPPFLAGS += -DDEBUG
 
 # ----------------------------------------------------------------------
 # feel free to update/modifiy this part as you wish
