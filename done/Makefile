@@ -18,12 +18,15 @@ CPPFLAGS += -DDEBUG
 # all those libs are required on Debian, feel free to adapt it to your box
 LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
 
-all:: test-addr 
+all:: test-commands
 test-addr :: tests.h util.h addr.h addr_mng.o
 
-addr_mng.o :: addr_mng.c addr_mng.h error.c error.h
 
-test-commands: test-commands.c addr.h error.h mem_access.h addr_mng.o commands.h commands.c
+
+test-commands: test-commands.c commands.o addr_mng.o
+error.o :: error.c error.h
+commands.o ::  commands.c commands.h addr.h mem_access.h addr_mng.o 
+addr_mng.o :: addr_mng.c addr_mng.h error.c error.h
 # ----------------------------------------------------------------------
 # This part is to make your life easier. See handouts how to make use of it.
 

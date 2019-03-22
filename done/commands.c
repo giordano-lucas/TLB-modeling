@@ -6,6 +6,7 @@
 #include "commands.h"
 #include <stdio.h>
 #include <inttypes.h>
+#include <ctype.h>
 #include <stdbool.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -84,9 +85,9 @@ int program_print(FILE* output, const program_t* program){
 	M_REQUIRE_NON_NULL(output);
 	for(int i = 0; i< program->nb_lines; i++){
 		command_t com = program->listing[i];
-		M_REQUIRE(com.order == READ || com.order == WRITE, ERR_BAD_PARAMETER, "ORDER is neither read nor write");
-		M_REQUIRE(com.type == INSTRUCTION || com.type == DATA, ERR_BAD_PARAMETER, "TYPE is neither Instruction nor Data");
-		M_REQUIRE(com.data_size == 1 || com.data_size == 4, ERR_BAD_PARAMETER, "DATA_SIZE is neither 1 nor 4");
+		M_REQUIRE(com.order == READ || com.order == WRITE, ERR_BAD_PARAMETER, "ORDER is neither read nor write%c", ' ');
+		M_REQUIRE(com.type == INSTRUCTION || com.type == DATA, ERR_BAD_PARAMETER, "TYPE is neither Instruction nor Data%c", ' ');
+		M_REQUIRE(com.data_size == 1 || com.data_size == 4, ERR_BAD_PARAMETER, "DATA_SIZE is neither 1 nor 4%c", ' ');
 		
 		
 		char ord = (com.order == READ) ? 'R' : 'W';
@@ -148,9 +149,9 @@ int program_add_command(program_t* program, const command_t* command){
 	M_REQUIRE_NON_NULL(command);
 	
 	//taille incorecte
-	 M_REQUIRE((command->type == INSTRUCTION)? (command->data_size == sizeof(word_t)): (command->data_size == 1 || command->data_size == sizeof(word_t)), ERR_SIZE, "Data size = %zu, type = %d, must be of size %d for Instructions and of size 1 or %d for Data", command->data_size, command->type, sizeof(word_t), sizeof(word_t));
+	 M_REQUIRE((command->type == INSTRUCTION)? (command->data_size == sizeof(word_t)): (command->data_size == 1 || command->data_size == sizeof(word_t)), ERR_SIZE, "Data size = %zu, type = %d, must be of size %lu for Instructions and of size 1 or %lu for Data", command->data_size, command->type, sizeof(word_t), sizeof(word_t));
 	//on cherche à écrire une instruction
-	 M_REQUIRE(!(command->type == INSTRUCTION && command->order == WRITE), ERR_BAD_PARAMETER, "Cannot write with an instruction");
+	 M_REQUIRE(!(command->type == INSTRUCTION && command->order == WRITE), ERR_BAD_PARAMETER, "Cannot write with an instruction%c", ' ');
 	//addr virtuelle invalide
 	 M_REQUIRE((command->vaddr.page_offset % command->data_size == 0), ERR_ADDR, "Page Offset size = %" PRIu16 " must be a multiple of data size", command->vaddr.page_offset);
 	
@@ -174,7 +175,7 @@ int readCommand(FILE* input, command_t* command){
 	// prepare for reading R or W
 	char buffer[MAX_SIZE_BUFFER];
 	size_t sizeRead = readUntilNextWhiteSpace(input,buffer);
-	M_REQUIRE(sizeRead == 1, ERR_IO, "First character of a line must be 1 (and then followed by a space(' '))");
+	M_REQUIRE(sizeRead == 1, ERR_IO, "First character of a line must be 1 (and then followed by a space(' '))%c", ' ');
 	
 	switch (buffer[0]) {
         case 'R':
@@ -184,7 +185,7 @@ int readCommand(FILE* input, command_t* command){
 			handleWrite(command, input);
 			break;
         default:
-			M_REQUIRE(0,ERR_IO, "First character of a line should be R or W"); 
+			M_REQUIRE(0,ERR_IO, "First character of a line should be R or W%c", ' '); 
             break;
     }
     return ERR_NONE;
@@ -208,10 +209,18 @@ size_t readUntilNextWhiteSpace(FILE* input, char buffer[]){
 		
 	return nbOfBytes;
 	}
+	
+int isHexString(char string[], size_t start, size_t length){
+	int isHexChar = 1;
+	for(int i= start; i<length; i++){
+		isHexChar = isHexChar && isxdigit(string[i]);
+	}
+	return isHexChar;
+}
 size_t handleTypeSize(command_t* command, FILE* input){
 	char buffer[MAX_SIZE_BUFFER];
 	size_t s = readUntilNextWhiteSpace(input, buffer);
-	M_REQUIRE(s <= 2 && s>0, ERR_BAD_PARAMETER, "SIZE OF TYPE MUST BE INF TO 2");
+	M_REQUIRE(s <= 2 && s>0, ERR_BAD_PARAMETER, "SIZE OF TYPE MUST BE INF TO 2%c", ' ');
 	buffer[s] = '\0';
 	mem_access_t t;
 	size_t data_s;
@@ -244,14 +253,16 @@ size_t handleRead(command_t* command, FILE* input){
 	command->write_data = 0;
 	//===================VIRT ADDR=================================
 	s = readUntilNextWhiteSpace(input, buffer);
-	M_REQUIRE(s >= 4 && s <= 20, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4");
-	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x");
-	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x");
-	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x");
-	M_REQUIRE(buffer[s-1] == '\n', ERR_BAD_PARAMETER, "virt addr must end with \\n");
+	M_REQUIRE(s >= 4 && s <= 20, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
+	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
+	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
+	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
+	M_REQUIRE(buffer[s-1] == '\n', ERR_BAD_PARAMETER, "virt addr must end with newline%c", ' ');
 	for(int i =0; i < 3; i++){
 		buffer[i] = ' ';
 	}
+	
+	M_REQUIRE(isHexString(buffer, 3, s-1), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' ');
 	uint64_t virt = (uint64_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64
 	init_virt_addr64(&(command->vaddr), virt);
 	return ERR_NONE;
@@ -264,26 +275,32 @@ size_t handleWrite(command_t* command, FILE* input){
 	size_t s;
 	//=======================WRITE_DATA=========================
 	s = readUntilNextWhiteSpace(input, buffer);
-	M_REQUIRE(s >= 4 && s <= 8+3, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4");
-	M_REQUIRE(buffer[0] == '0', ERR_BAD_PARAMETER, "virt addr must start with 0x");
-	M_REQUIRE(buffer[1] == 'x', ERR_BAD_PARAMETER, "virt addr must start with 0x");
+	M_REQUIRE(s >= 4 && s <= 8+3, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
+	M_REQUIRE(buffer[0] == '0', ERR_BAD_PARAMETER, "virt addr must start with 0x%c", ' ');
+	M_REQUIRE(buffer[1] == 'x', ERR_BAD_PARAMETER, "virt addr must start with 0x%c", ' ');
+	
+	
 	for(int i =0; i < 2; i++){
 		buffer[i] = ' ';
 	}
+	M_REQUIRE(isHexString(buffer, 2, s), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' ');
+	
 	command->write_data = (word_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64
 	
 	
 	
 	//=======================VIRT ADDR==========================
 	s = readUntilNextWhiteSpace(input, buffer);
-	M_REQUIRE(s >= 4 &&s <= 20, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4");
-	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x");
-	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x");
-	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x");
-	M_REQUIRE(buffer[s-1] == '\n', ERR_BAD_PARAMETER, "virt addr must end with \\n");
+	M_REQUIRE(s >= 4 &&s <= 20, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
+	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
+	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
+	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
+	M_REQUIRE(buffer[s-1] == '\n', ERR_BAD_PARAMETER, "virt addr must end with newline%c", ' ');
 	for(int i =0; i < 3; i++){
 		buffer[i] = ' ';
 	}
+	
+	M_REQUIRE(isHexString(buffer, 3, s-1), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' ');
 	uint64_t virt = (uint64_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64
 	init_virt_addr64(&(command->vaddr), virt);
 	return ERR_NONE;
