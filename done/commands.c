@@ -10,6 +10,11 @@
 #include <ctype.h>
 #include <stdlib.h>
 
+size_t handleRead(command_t* command, FILE* input);
+size_t handleWrite(command_t* command, FILE* input);
+size_t handleTypeSize(command_t* command, FILE* input);
+size_t readUntilNextWhiteSpace(FILE* input, char buffer[]);
+
 /**
  * @brief "Constructor" for program_t: initialize a program.
  * @param program (modified) the program to be initialized.
@@ -19,17 +24,16 @@
  */
 int program_init(program_t* program){
 	M_REQUIRE_NON_NULL(program);
-	
 	program->nb_lines = 0;
 	program->allocated = sizeof(program->listing);
 	
 	virt_addr_t v;
 	init_virt_addr(&v,0,0,0,0,0);
 	command_t command0 = {0,0,0,0,v}; 
-	for (int i = 0 ; i < program->allocated ; ++i){
+	for (int i = 0 ; i < MAX_SIZE_LISTING ; ++i){
 		(program->listing)[i] = command0;
 		
-	}
+	}	
 	return ERR_NONE;
 }
 /**
@@ -39,7 +43,7 @@ int program_init(program_t* program){
  */
 int print_word_t_as_word(FILE* output, const word_t word){
 	M_REQUIRE_NON_NULL(output);
-	fprintf(output, "0x%08" PRIX32, word);
+	fprintf(output, "0x%08" PRIX32 " ", word);
 	return ERR_NONE;
 }
 
@@ -51,7 +55,7 @@ int print_word_t_as_word(FILE* output, const word_t word){
  */
 int print_word_t_as_byte(FILE* output, const word_t word){
 	M_REQUIRE_NON_NULL(output);
-	fprintf(output, "0x%02" PRIX32, word);
+	fprintf(output, "0x%02" PRIX32 " ", word);
 	return ERR_NONE;
 }
 
@@ -90,8 +94,11 @@ int program_print(FILE* output, const program_t* program){
 		char size = (com.data_size == 1) ? 'B' : 'W';
 		uint64_t addr = virt_addr_t_to_uint64_t(&com.vaddr);
 		fprintf(output, "%c %c", ord, type);
+		
 		if(type == 'D'){ //if it is data
 			fprintf(output, "%c ", size);
+		}else{
+			fprintf(output, " ");
 		}
 		if(ord == 'W' && type == 'D'){ //IF WE WRITE
 			if(size == 'B'){
@@ -104,7 +111,7 @@ int program_print(FILE* output, const program_t* program){
 		fprintf(output, "@");
 		print_uint_64(output, addr);
 		
-		
+		printf("\n");
 	}
 	return ERR_NONE;
 	}
@@ -139,10 +146,11 @@ int program_shrink(program_t* program){
 int program_add_command(program_t* program, const command_t* command){
 	M_REQUIRE_NON_NULL(program);
 	M_REQUIRE_NON_NULL(command);
+	
 	//taille incorecte
 	 M_REQUIRE((command->type == INSTRUCTION)? (command->data_size == sizeof(word_t)): (command->data_size == 1 || command->data_size == sizeof(word_t)), ERR_SIZE, "Data size = %zu, type = %d, must be of size %d for Instructions and of size 1 or %d for Data", command->data_size, command->type, sizeof(word_t), sizeof(word_t));
 	//on cherche à écrire une instruction
-	 M_REQUIRE(!command->type == INSTRUCTION || command->order == WRITE, ERR_BAD_PARAMETER, "Cannot write with an instruction");
+	 M_REQUIRE(!(command->type == INSTRUCTION && command->order == WRITE), ERR_BAD_PARAMETER, "Cannot write with an instruction");
 	//addr virtuelle invalide
 	 M_REQUIRE((command->vaddr.page_offset % command->data_size == 0), ERR_ADDR, "Page Offset size = %" PRIu16 " must be a multiple of data size", command->vaddr.page_offset);
 	
@@ -160,13 +168,8 @@ int program_add_command(program_t* program, const command_t* command){
 	
 //==================================== READ PART ===========================================
 #define MAX_SIZE_BUFFER 20
-command_t readCommand(FILE* input){
+int readCommand(FILE* input, command_t* command){
 	M_REQUIRE_NON_NULL(input);
-	
-	// create empty command
-	virt_addr_t v;
-	init_virt_addr(&v,0,0,0,0,0);
-	command_t command = {0,0,0,0,v}; 
 	
 	// prepare for reading R or W
 	char buffer[MAX_SIZE_BUFFER];
@@ -175,16 +178,16 @@ command_t readCommand(FILE* input){
 	
 	switch (buffer[0]) {
         case 'R':
-            handleRead(&command);
+            handleRead(command, input);
             break;
         case 'W':
-			handleWrite(&command);
+			handleWrite(command, input);
 			break;
         default:
-			M_REQUIRE_NON_NULL_CUSTOM_ERR(NULL,ERR_IO, "First character of a line should be R or W"); 
+			M_REQUIRE(0,ERR_IO, "First character of a line should be R or W"); 
             break;
     }
-    return command
+    return ERR_NONE;
 	}
 size_t readUntilNextWhiteSpace(FILE* input, char buffer[]){
 	M_REQUIRE_NON_NULL(input);
@@ -241,10 +244,11 @@ size_t handleRead(command_t* command, FILE* input){
 	command->write_data = 0;
 	//===================VIRT ADDR=================================
 	s = readUntilNextWhiteSpace(input, buffer);
-	M_REQUIRE(s >= 4, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4");
+	M_REQUIRE(s >= 4 && s <= 20, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4");
 	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x");
 	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x");
 	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x");
+	M_REQUIRE(buffer[s-1] == '\n', ERR_BAD_PARAMETER, "virt addr must end with \\n");
 	for(int i =0; i < 3; i++){
 		buffer[i] = ' ';
 	}
@@ -261,22 +265,22 @@ size_t handleWrite(command_t* command, FILE* input){
 	//=======================WRITE_DATA=========================
 	s = readUntilNextWhiteSpace(input, buffer);
 	M_REQUIRE(s >= 4 && s <= 8+3, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4");
-	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x");
-	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x");
-	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x");
-	for(int i =0; i < 3; i++){
+	M_REQUIRE(buffer[0] == '0', ERR_BAD_PARAMETER, "virt addr must start with 0x");
+	M_REQUIRE(buffer[1] == 'x', ERR_BAD_PARAMETER, "virt addr must start with 0x");
+	for(int i =0; i < 2; i++){
 		buffer[i] = ' ';
 	}
-	command->write_data = (word_t) strtoul(buffer, (char **)NULL, 16); //unsigned long long to uint64
+	command->write_data = (word_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64
 	
 	
 	
 	//=======================VIRT ADDR==========================
 	s = readUntilNextWhiteSpace(input, buffer);
-	M_REQUIRE(s >= 4 &&s <= 16+3, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4");
+	M_REQUIRE(s >= 4 &&s <= 20, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4");
 	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x");
 	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x");
 	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x");
+	M_REQUIRE(buffer[s-1] == '\n', ERR_BAD_PARAMETER, "virt addr must end with \\n");
 	for(int i =0; i < 3; i++){
 		buffer[i] = ' ';
 	}
@@ -295,14 +299,18 @@ size_t handleWrite(command_t* command, FILE* input){
 int program_read(const char* filename, program_t* program){
 	M_REQUIRE_NON_NULL(filename);
 	M_REQUIRE_NON_NULL(program);
-	File* file= NULL;
-	file = fopen(filename);
+	FILE* file= NULL;
+	file = fopen(filename, "r");
 	if (file == NULL) return ERR_IO;
 	program_init(program);
 	
 	
-	while (!feof(file) && !ferror(file) {
-		program_add_command(program, readCommand(file))
+	while (!feof(file) && !ferror(file) ){
+		virt_addr_t v;
+		init_virt_addr(&v,0,0,0,0,0);
+		command_t newC = {0,0,0,0,v}; 
+		readCommand(file, &newC);
+		program_add_command(program, &newC);
 		}
 	return ERR_NONE;
 	}

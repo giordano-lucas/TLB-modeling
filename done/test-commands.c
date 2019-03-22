@@ -10,6 +10,8 @@ int main(int argc, char *argv[])
     }
 
     program_t pgm;
+   
+    
     if (program_read(argv[1], &pgm) == ERR_NONE) {
         (void)program_print(stdout, &pgm);
     }

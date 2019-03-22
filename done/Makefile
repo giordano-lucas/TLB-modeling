@@ -23,7 +23,7 @@ test-addr :: tests.h util.h addr.h addr_mng.o
 
 addr_mng.o :: addr_mng.c addr_mng.h error.c error.h
 
-
+test-commands: test-commands.c addr.h error.h mem_access.h addr_mng.o commands.h commands.c
 # ----------------------------------------------------------------------
 # This part is to make your life easier. See handouts how to make use of it.
 
