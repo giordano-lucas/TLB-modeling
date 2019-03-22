@@ -68,7 +68,7 @@ int print_word_t_as_byte(FILE* output, const word_t word){
  */
 int print_uint_64(FILE* output, const uint64_t toPrint){
 	M_REQUIRE_NON_NULL(output);
-	fprintf(output, "0x%016" PRIX64, toPrint);
+	fprintf(output, "0x%016\n" PRIX64, toPrint);
 	return ERR_NONE;
 }
 /**
@@ -78,6 +78,7 @@ int print_uint_64(FILE* output, const uint64_t toPrint){
  * 
  * @param output : must be non null
  * @param program  : must be non null
+ * program.order, type, and data_size should be either of their enum values
  * @return error code bad param or err_none
  */
 int program_print(FILE* output, const program_t* program){
@@ -90,29 +91,28 @@ int program_print(FILE* output, const program_t* program){
 		M_REQUIRE(com.data_size == 1 || com.data_size == 4, ERR_BAD_PARAMETER, "DATA_SIZE is neither 1 nor 4%c", ' ');
 		
 		
-		char ord = (com.order == READ) ? 'R' : 'W';
-		char type = (com.type == INSTRUCTION) ? 'I' : 'D';
-		char size = (com.data_size == 1) ? 'B' : 'W';
-		uint64_t addr = virt_addr_t_to_uint64_t(&com.vaddr);
-		fprintf(output, "%c %c", ord, type);
+		char ord = (com.order == READ) ? 'R' : 'W'; //checks if read or write
+		char type = (com.type == INSTRUCTION) ? 'I' : 'D'; //checks if instruction or data
+		char size = (com.data_size == 1) ? 'B' : 'W';  //checks if size of byte or word
+		uint64_t addr = virt_addr_t_to_uint64_t(&com.vaddr); //convers the virtual address to a uint64
+		fprintf(output, "%c %c", ord, type); //prints the order and the type
 		
 		if(type == 'D'){ //if it is data
 			fprintf(output, "%c ", size);
 		}else{
-			fprintf(output, " ");
+			fprintf(output, " "); //simply print a separator if its an instruction
 		}
 		if(ord == 'W' && type == 'D'){ //IF WE WRITE
-			if(size == 'B'){
+			if(size == 'B'){//print the write data as a byte
 				print_word_t_as_byte(output, com.write_data);
 			}
-			else{
+			else{//print the write data as a word
 				print_word_t_as_word(output, com.write_data);
 			}
 		}
 		fprintf(output, "@");
-		print_uint_64(output, addr);
+		print_uint_64(output, addr); //prints the virtual address
 		
-		printf("\n");
 	}
 	return ERR_NONE;
 	}
@@ -210,47 +210,67 @@ size_t readUntilNextWhiteSpace(FILE* input, char buffer[]){
 	return nbOfBytes;
 	}
 	
+	/**
+	 * Checks if a string contains only hexadecimal characters
+	 * 
+	 * @return : 1 if the whole string contains only hexadecimal characters, else 0
+	 */
 int isHexString(char string[], size_t start, size_t length){
 	int isHexChar = 1;
-	for(int i= start; i<length; i++){
+	for(int i= start; i<length; i++){ //iterates on full string to check if is an xdigit
 		isHexChar = isHexChar && isxdigit(string[i]);
 	}
 	return isHexChar;
 }
-size_t handleTypeSize(command_t* command, FILE* input){
+
+	/**
+	 * Tool method that calls readUntilNextWhiteSpace in order to fill the type and data_size of a command
+	 * Calls readUntilNextWhiteSpace with a buffer in order to get the next String that isnt made of spaces
+	 * @param : input : 
+	 * @return : Either an error code or ERR_NONE
+	 */
+int handleTypeSize(command_t* command, FILE* input){
 	char buffer[MAX_SIZE_BUFFER];
 	size_t s = readUntilNextWhiteSpace(input, buffer);
 	M_REQUIRE(s <= 2 && s>0, ERR_BAD_PARAMETER, "SIZE OF TYPE MUST BE INF TO 2%c", ' ');
-	buffer[s] = '\0';
+	buffer[s] = '\0';  //sets the last char in the buffer to \0 in order to use strcmp that compares strings and returns 0 if they are equal
 	mem_access_t t;
 	size_t data_s;
-	if(strcmp(buffer, "I") == 0){
+	if(strcmp(buffer, "I") == 0){  //If the type of the string read is I
 		t = INSTRUCTION;
 		data_s = sizeof(word_t);
 	}
-	else if(strcmp(buffer,"DB") == 0){
+	else if(strcmp(buffer,"DB") == 0){// If the type of the string read is DB
 		t = DATA;
 		data_s = 1;
 	}	
-	else if(strcmp(buffer,"DW") == 0){
+	else if(strcmp(buffer,"DW") == 0){//If the type of the string read is DW
 		t = DATA;
 		data_s = 4;
 	}
 	else{
 		return ERR_IO;
 	}
-	buffer[s] = ' ';
+	buffer[s] = ' ';//removes the \0 after having compared
 	command->type = t;
 	command->data_size = data_s;
 	return ERR_NONE;
 }
-size_t handleRead(command_t* command, FILE* input){
+
+
+	/**
+	 * Fills the order of the command, calls handleTypeSize to fill the type and size of the command
+	 * Fills in the virtual address of the command using readUntilNextWhiteSpace and strtoull to parse the hex string into a uint64
+	 * 
+	 * @return : Either an error code or ERR_NONE
+	 */
+int handleRead(command_t* command, FILE* input){
 	//Suppose qu'il a déjà lu le R / W
 	command->order = READ;
-	handleTypeSize(command, input);
+	handleTypeSize(command, input);  //Fills the type and size
 	size_t s;
 	char buffer[MAX_SIZE_BUFFER];
-	command->write_data = 0;
+	command->write_data = 0;  //since it is a read
 	//===================VIRT ADDR=================================
 	s = readUntilNextWhiteSpace(input, buffer);
 	M_REQUIRE(s >= 4 && s <= 20, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
@@ -258,19 +278,25 @@ size_t handleRead(command_t* command, FILE* input){
 	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
 	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
 	M_REQUIRE(buffer[s-1] == '\n', ERR_BAD_PARAMETER, "virt addr must end with newline%c", ' ');
-	for(int i =0; i < 3; i++){
+	for(int i =0; i < 3; i++){ //fills the @0x with spaces so strtoull can parse the hex
 		buffer[i] = ' ';
 	}
 	
-	M_REQUIRE(isHexString(buffer, 3, s-1), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' ');
-	uint64_t virt = (uint64_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64
+	M_REQUIRE(isHexString(buffer, 3, s-1), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' '); //requires that it indeed is a hex string
+	uint64_t virt = (uint64_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64, parses the virtual address in the buffer
 	init_virt_addr64(&(command->vaddr), virt);
 	return ERR_NONE;
 }
-size_t handleWrite(command_t* command, FILE* input){
+
+
+	/**
+	 * Same as the handleRead method, but also fills in the data_size using readUntilNextWhiteSpace
+	 * 
+	 */
+int handleWrite(command_t* command, FILE* input){
 	//Suppose qu'il a déjà lu le R / W
 	command->order = WRITE;
-	handleTypeSize(command, input);
+	handleTypeSize(command, input); //fills type and size
 	char buffer[MAX_SIZE_BUFFER];
 	size_t s;
 	//=======================WRITE_DATA=========================
@@ -279,13 +305,12 @@ size_t handleWrite(command_t* command, FILE* input){
 	M_REQUIRE(buffer[0] == '0', ERR_BAD_PARAMETER, "virt addr must start with 0x%c", ' ');
 	M_REQUIRE(buffer[1] == 'x', ERR_BAD_PARAMETER, "virt addr must start with 0x%c", ' ');
 	
-	
-	for(int i =0; i < 2; i++){
+	for(int i =0; i < 2; i++){ //fills with spaces so the parser can work without the 0x
 		buffer[i] = ' ';
 	}
-	M_REQUIRE(isHexString(buffer, 2, s), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' ');
+	M_REQUIRE(isHexString(buffer, 2, s), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' '); //if indeed a hex string
 	
-	command->write_data = (word_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64
+	command->write_data = (word_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to word_t, parses the hex string
 	
 	
 	
@@ -296,12 +321,12 @@ size_t handleWrite(command_t* command, FILE* input){
 	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
 	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
 	M_REQUIRE(buffer[s-1] == '\n', ERR_BAD_PARAMETER, "virt addr must end with newline%c", ' ');
-	for(int i =0; i < 3; i++){
+	for(int i =0; i < 3; i++){ //fills with spaces so the parser can work without the @0x
 		buffer[i] = ' ';
 	}
 	
-	M_REQUIRE(isHexString(buffer, 3, s-1), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' ');
-	uint64_t virt = (uint64_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64
+	M_REQUIRE(isHexString(buffer, 3, s-1), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' '); //if indeed a hex string
+	uint64_t virt = (uint64_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64, parses the hex string
 	init_virt_addr64(&(command->vaddr), virt);
 	return ERR_NONE;
 }
