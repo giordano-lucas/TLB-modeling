@@ -11,10 +11,10 @@
 #include <ctype.h>
 #include <stdlib.h>
 
-size_t handleRead(command_t* command, FILE* input);
-size_t handleWrite(command_t* command, FILE* input);
-size_t handleTypeSize(command_t* command, FILE* input);
-size_t readUntilNextWhiteSpace(FILE* input, char buffer[]);
+int handleRead(command_t* command, FILE* input);
+int handleWrite(command_t* command, FILE* input);
+int handleTypeSize(command_t* command, FILE* input);
+int readUntilNextWhiteSpace(FILE* input, char buffer[]);
 
 /**
  * @brief "Constructor" for program_t: initialize a program.
@@ -26,11 +26,14 @@ size_t readUntilNextWhiteSpace(FILE* input, char buffer[]);
 int program_init(program_t* program){
 	M_REQUIRE_NON_NULL(program);
 	program->nb_lines = 0;
-	program->allocated = sizeof(program->listing);
+	program->allocated = 10;
 	
 	virt_addr_t v;
 	init_virt_addr(&v,0,0,0,0,0);
 	command_t command0 = {0,0,0,0,v}; 
+	program->listing = calloc(10, sizeof(command_t));
+	M_EXIT_IF_NULL(program->listing, 10*sizeof(command_t));
+	
 	for (int i = 0 ; i < MAX_SIZE_LISTING ; ++i){
 		(program->listing)[i] = command0;
 		
@@ -190,7 +193,7 @@ int readCommand(FILE* input, command_t* command){
     }
     return ERR_NONE;
 	}
-size_t readUntilNextWhiteSpace(FILE* input, char buffer[]){
+int readUntilNextWhiteSpace(FILE* input, char buffer[]){
 	M_REQUIRE_NON_NULL(input);
 	int c = 0; 
 	bool hasReadOneNonWhiteSpace = false; // flag to say that we need to read at lest one non white space char to exit the function

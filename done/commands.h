@@ -61,7 +61,7 @@
   * - allocated : la taille allouée à listing
   */
  typedef struct {
-	 command_t listing[MAX_SIZE_LISTING];
+	 command_t* listing;
 	 size_t nb_lines;
 	 size_t allocated;
 	 } program_t;
