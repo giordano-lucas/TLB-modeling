@@ -11,6 +11,7 @@
 #include "addr.h"   // for virt_addr_t
 #include <stdlib.h> // for size_t and free()
 #include <stdio.h>
+#include "error.h"
 
 /**
  * @brief enum type to describe how to print address;
@@ -40,8 +41,44 @@ typedef enum addr_fmt addr_fmt_t;
  *
  */
 
-int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capacity_in_bytes);
-
+int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capacity_in_bytes){
+	M_REQUIRE_NON_NULL(filename);
+	M_REQUIRE_NON_NULL(memory);
+	M_REQUIRE_NON_NULL(mem_capacity_in_bytes);
+	
+	FILE* file = fopen(filename, "rb");
+	M_REQUIRE_NON_NULL(file);
+	
+	// va tout au bout du fichier
+	fseek(file, 0L, SEEK_END);
+	// indique la position, et donc la taille (en octets)
+	*mem_capacity_in_bytes = (size_t) ftell(file);
+	// revient au début du fichier (pour le lire par la suite)
+	rewind(file);
+	
+	//allocate memory
+	*memory = calloc(*mem_capacity_in_bytes, sizeof(byte_t));
+	M_REQUIRE_NON_NULL(*memory);
+	
+	size_t nb_read = fread(*memory, sizeof(byte_t), *mem_capacity_in_bytes, file);
+	M_REQUIRE(nb_read == *mem_capacity_in_bytes, ERR_IO, "Error reading file %c", ' ');
+	
+	return ERR_NONE;
+	}
+int page_file_read(const void** memory,size_t memorySize, const uint64_t addr, const char* filename){
+		M_REQUIRE_NON_NULL(memory);
+		M_REQUIRE_NON_NULL(*memory);
+		M_REQUIRE_NON_NULL(filename);
+		// test that we can add an entire page at the given address 
+		M_REQUIRE((addr + PAGE_SIZE) <= memorySize, ERR_MEM, "Cannot add a page of 4kB at the address : %"PRIx64" for memory size : %zu", addr,memorySize);
+		FILE* file = fopen(filename, "rb");
+		M_REQUIRE_NON_NULL(file);
+		
+		void* memoryFromAddr = &((*memory)[addr]);
+		size_t nb_read = fread(memoryFromAddr, sizeof(byte_t), PAGE_SIZE);
+		M_REQUIRE(nb_read == PAGE_SIZE, ERR_IO, "Error reading file : %c", ' ');
+		return ERR_NONE;
+	}
 
 /**
  * @brief Create and initialize the whole memory space from a provided
@@ -85,6 +122,7 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 		strtok(pageLocation, "\n"); //removes newline char at the end
 		
 		//USE PAGE FILE READ FOR EVERY OF THOSE TABLES
+		page_file_read(memory, totalSize,location, pageLocation );
 	}
 	
 	while(!feof(f)){
@@ -96,6 +134,13 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 		fgets(pageLocation, maxFileSize, f);
 		strtok(pageLocation, "\n"); //removes newline char at the end
 		//CHANGE VIRTUAL TO PHYSICAL AND CALL PAGE READ
+		
+		virt_addr_t virt;
+		init_virt_addr64(&virt, location);
+		phy_addr_t phy;
+		page_walk(*memory, &location, &phy);
+		uint64_t physical = (phy.page_offset | (phy.phy_page_num << PAGE_OFFSET));
+		page_file_read(memory, totalSize, physical, pageLocation);
 	}
 }
 
@@ -116,9 +161,7 @@ int vmem_page_dump_with_options(const void *mem_space, const virt_addr_t* from,
 
 
 
-int page_file_read(const void** memory, const size_t memorySize, const size_t address, const char* filename){
-	
-}
+
 
 #define vmem_page_dump(mem, from) vmem_page_dump_with_options(mem, from, OFFSET, 16, " ")
 
