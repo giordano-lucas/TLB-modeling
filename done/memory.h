@@ -10,6 +10,7 @@
 
 #include "addr.h"   // for virt_addr_t
 #include <stdlib.h> // for size_t and free()
+#include <stdio.h>
 
 /**
  * @brief enum type to describe how to print address;
@@ -60,8 +61,43 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
  * @return error code, *p_memory shall be NULL in case of error
  *
  */
+#define maxFileSize 100
 
-int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes);
+int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes){
+	FILE* f = fopen(filename, "r");
+	size_t totalSize = -1;  //FIRST LINE : TOTAL MEM SIZE
+	fscanf(f, "%zu", &totalSize);
+	
+	char pgd_location[maxFileSize];  //SECONDE LINE : PGD
+	fgets(pgd_location, maxFileSize, f);
+	strtok(pgd_location, "\n"); //removes newline char at the end
+	
+	size_t nb_tables; //THIRD LINE : NUMBER OF PDM+PUD+PTE
+	fscanf(f, "%zu", &nb_tables);
+	
+	for(size_t i =0; i < nb_tables ; i++){
+		char physicalAddress[10];
+		fscanf("%s", physicalAddress);
+		uint32_t location = strtoul(physicalAddress, (void)char**, 16);
+		
+		char pageLocation[maxFileSize];  
+		fgets(pageLocation, maxFileSize, f);
+		strtok(pageLocation, "\n"); //removes newline char at the end
+		
+		//USE PAGE FILE READ FOR EVERY OF THOSE TABLES
+	}
+	
+	while(!feof(f)){
+		char physicalAddress[18];
+		fscanf("%s", physicalAddress);
+		uint64_t location = strtoull(physicalAddress, (void)char**, 16);
+		
+		char pageLocation[maxFileSize];  
+		fgets(pageLocation, maxFileSize, f);
+		strtok(pageLocation, "\n"); //removes newline char at the end
+		//CHANGE VIRTUAL TO PHYSICAL AND CALL PAGE READ
+	}
+}
 
 
 /**
@@ -77,6 +113,12 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 
 int vmem_page_dump_with_options(const void *mem_space, const virt_addr_t* from,
                                 addr_fmt_t show_addr, size_t line_size, const char* sep);
+
+
+
+int page_file_read(const void** memory, const size_t memorySize, const size_t address, const char* filename){
+	
+}
 
 #define vmem_page_dump(mem, from) vmem_page_dump_with_options(mem, from, OFFSET, 16, " ")
 

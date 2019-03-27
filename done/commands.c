@@ -15,7 +15,9 @@ int handleRead(command_t* command, FILE* input);
 int handleWrite(command_t* command, FILE* input);
 int handleTypeSize(command_t* command, FILE* input);
 int readUntilNextWhiteSpace(FILE* input, char buffer[]);
+int program_resize(program_t* prog, size_t newSize);
 
+#define startCommandsAllocated 10
 /**
  * @brief "Constructor" for program_t: initialize a program.
  * @param program (modified) the program to be initialized.
@@ -31,8 +33,8 @@ int program_init(program_t* program){
 	virt_addr_t v;
 	init_virt_addr(&v,0,0,0,0,0);
 	command_t command0 = {0,0,0,0,v}; 
-	program->listing = calloc(10, sizeof(command_t));
-	M_EXIT_IF_NULL(program->listing, 10*sizeof(command_t));
+	program->listing = calloc(startCommandsAllocated, sizeof(command_t));
+	M_EXIT_IF_NULL(program->listing, startCommandsAllocated*sizeof(command_t));
 	
 	for (int i = 0 ; i < MAX_SIZE_LISTING ; ++i){
 		(program->listing)[i] = command0;
@@ -129,8 +131,29 @@ int program_print(FILE* output, const program_t* program){
  */
 int program_shrink(program_t* program){
 	M_REQUIRE_NON_NULL(program);
+	if(program->nb_lines > 0){
+	while(program->allocated > program->nb_lines){
+		M_REQUIRE((program_resize(program, program->nb_lines) == ERR_NONE), ERR_MEM, "Could not resize %c", " ");
+		}
+	}
+	else if(program->nb_lines < 0){
+		return ERR_BAD_PARAMETER;
+	}
+	else{
+		M_REQUIRE(program_resize(program, startCommandsAllocated) == ERR_NONE, ERR_MEM, "Could not resize %c", " ");
+	}
 	return ERR_NONE;
 	}	
+	
+	
+	int program_resize(program_t* prog, size_t newSize){
+		M_REQUIRE_NON_NULL(prog);
+		program_t copy = *prog;
+		copy.allocated = newSize;
+		M_REQUIRE(!(copy.allocated > (SIZE_MAX/sizeof(command_t)) || (copy.listing = realloc(copy.listing, copy.allocated*sizeof(command_t))) == NULL ), ERR_MEM, "Could not reallocate enough size %c", ' ');
+		*prog = copy;
+		return ERR_NONE;
+	}
 	
 /**
  * @brief add a command (line) to a program. Reallocate memory if necessary.
@@ -157,16 +180,15 @@ int program_add_command(program_t* program, const command_t* command){
 	 M_REQUIRE(!(command->type == INSTRUCTION && command->order == WRITE), ERR_BAD_PARAMETER, "Cannot write with an instruction%c", ' ');
 	//addr virtuelle invalide
 	 M_REQUIRE((command->vaddr.page_offset % command->data_size == 0), ERR_ADDR, "Page Offset size = %" PRIu16 " must be a multiple of data size", command->vaddr.page_offset);
-	
-	if (program->allocated == program->nb_lines) {
-		return ERR_MEM;
+
+	while(program->nb_lines > program->allocated){
+		M_REQUIRE(program_resize(program, program->allocated*2) == ERR_NONE, ERR_MEM, "Could not resize %c", " ");
 	}
-	else {
-		// à vérifier si on doit copier les pointeurs ou pas
-		program->listing[program->nb_lines] = *command;
-		program->nb_lines++;
-		return ERR_NONE;
-		}	
+	// à vérifier si on doit copier les pointeurs ou pas
+	program->listing[program->nb_lines] = *command;
+	program->nb_lines++;
+	return ERR_NONE;
+	
 	}
 	
 	
@@ -232,7 +254,7 @@ int readCommand(FILE* input, command_t* command){
  * 
  * 
  **/
-size_t readUntilNextWhiteSpace(FILE* input, char buffer[]){
+int readUntilNextWhiteSpace(FILE* input, char buffer[]){
 	M_REQUIRE_NON_NULL(input);
 	int c = 0; 
 	bool hasReadOneNonWhiteSpace = false; // flag to say that we need to read at lest one non white space char to exit the function
