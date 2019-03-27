@@ -172,11 +172,24 @@ int program_add_command(program_t* program, const command_t* command){
 	
 //==================================== READ PART ===========================================
 #define MAX_SIZE_BUFFER 20
+// the longest char we can read by calling readUntilNextWhiteSpace is the address that is 
+// represented on 16 bits but readUntilNextWhiteSpace also include "@0x" in front of the address and maybe '\n' at the end if it was
+// the end of the line  which leads to 16+3+1 = 20 character maximum
+
+/**
+ * @brief Reads a command from input (a line of it) and writes it into the command structure
+ * 
+ * 
+ * @param input : must be non null, file where the command could be found.
+ * @param command : must be non null, command where the command read should be written
+ * @return ERR_NONE or another ERR in case of an error
+ **/
 int readCommand(FILE* input, command_t* command){
 	M_REQUIRE_NON_NULL(input);
 	
 	// prepare for reading R or W
 	char buffer[MAX_SIZE_BUFFER];
+	// read the first character of a command (should be 'R' on 'W')
 	size_t sizeRead = readUntilNextWhiteSpace(input,buffer);
 	M_REQUIRE(sizeRead == 1, ERR_IO, "First character of a line must be 1 (and then followed by a space(' '))%c", ' ');
 	
@@ -193,16 +206,45 @@ int readCommand(FILE* input, command_t* command){
     }
     return ERR_NONE;
 	}
-int readUntilNextWhiteSpace(FILE* input, char buffer[]){
+
+/**
+ * Reads the stream input until it finds a whitespace (in the sense of isspace) on the end of the file
+ * and store the char read in the buffer argument and returns the number of char (non whitespaces) that have been read (noted nbOfBytes)
+ * 
+ * @param input : must be non null, stream where the caracters will be read
+ * @param buffer[] : must be non null, buffer where the caracters will be written
+ * @return the number of char that have been read until a whitespace was found
+ * 			OR ERR_IO if more than MAX_SIZE_BUFFER consecutive char not separated by a whitespace have been read
+ * 
+ * Notes:
+ * 
+ * /!\ all elements of buffer of indices that belongs to {nbOfBytes,nbOfBytes+1,...,MAX_SIZE_BUFFER-1} are left in their initial state 
+ * (are not set to 0 for example) and therefor should not be read after the call to readUntilNextWhiteSpace (they are irrelevant)
+ * 
+ * /!\ all white spaces that appear before the first non white space char will be ignored 
+ * 		ex: ' '' '' ''a''b''c'' ' will return the buffer = {'a','b','c'} with size = 3
+ * 		-> see the hasReadOneNonWhiteSpace boolean in the code
+ * 
+ * /!\ if the white spaces character that made the execution stops is '\n' this last char will be written inside the buffer
+ * 		(this is usefull to check if a command is terminated by a '\n')
+ * 		ex: ' '' '' ''a''b''c''\n' will return the buffer = {'a','b','c','\n'} with size = 4
+ * 
+ * 
+ * 
+ **/
+size_t readUntilNextWhiteSpace(FILE* input, char buffer[]){
 	M_REQUIRE_NON_NULL(input);
 	int c = 0; 
 	bool hasReadOneNonWhiteSpace = false; // flag to say that we need to read at lest one non white space char to exit the function
 	size_t nbOfBytes = 0;
 	while (!feof(input) && !ferror(input) && !(isspace(c) && hasReadOneNonWhiteSpace)){
+		// we iterate until we find a whitespace (and at least one non whitespace has been read) or until the end of the file
 		c = fgetc(input);
-		if (!isspace(c) || c == '\n'){
-		    hasReadOneNonWhiteSpace = true;
-			if (nbOfBytes >= MAX_SIZE_BUFFER){
+		if (!isspace(c) || c == '\n'){ // if the char is not a white space then it's added into the buffer. 
+			//Moreover if we add a \n then it can only be the last charater since the loop condition at the next iteration will be false (because of isspace(c) && hasReadOneNonWhiteSpace)
+			// the last \n is usefull to check if a command is terminated by a '\n'
+		    hasReadOneNonWhiteSpace = true; // if we enter here it means that we have read a non whitespace char (or a \n but as mentionned before this is the last char that could be added)
+			if (nbOfBytes >= MAX_SIZE_BUFFER){ // if more than MAX_SIZE_BUFFER are read then it means that it is an invalid command (see def of MAX_SIZE_BUFFER for more details)
 				return ERR_IO;
 				}
 			buffer[nbOfBytes] = c;
@@ -340,6 +382,7 @@ int handleWrite(command_t* command, FILE* input){
  * 
  * @param filename : must be non null
  * @param program : must be non null
+ * @return ERR_NONE or ERR_IO if the file could not be opened 
  */
 int program_read(const char* filename, program_t* program){
 	M_REQUIRE_NON_NULL(filename);
@@ -351,6 +394,7 @@ int program_read(const char* filename, program_t* program){
 	
 	
 	while (!feof(file) && !ferror(file) ){
+		// create new command that will be filled by readCommand
 		virt_addr_t v;
 		init_virt_addr(&v,0,0,0,0,0);
 		command_t newC = {0,0,0,0,v}; 
