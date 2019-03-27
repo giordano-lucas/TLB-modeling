@@ -12,6 +12,8 @@
 #include <stdlib.h> // for size_t and free()
 #include <stdio.h>
 #include "error.h"
+#include <ctype.h>
+#include <inttypes.h>
 
 /**
  * @brief enum type to describe how to print address;
@@ -75,7 +77,7 @@ int page_file_read(const void** memory,size_t memorySize, const uint64_t addr, c
 		M_REQUIRE_NON_NULL(file);
 		
 		void* memoryFromAddr = &((*memory)[addr]);
-		size_t nb_read = fread(memoryFromAddr, sizeof(byte_t), PAGE_SIZE);
+		size_t nb_read = fread(memoryFromAddr, sizeof(byte_t), PAGE_SIZE,file);
 		M_REQUIRE(nb_read == PAGE_SIZE, ERR_IO, "Error reading file : %c", ' ');
 		return ERR_NONE;
 	}
@@ -101,7 +103,7 @@ int page_file_read(const void** memory,size_t memorySize, const uint64_t addr, c
 #define maxFileSize 100
 
 int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes){
-	FILE* f = fopen(filename, "r");
+	FILE* f = fopen(master_filename, "r");
 	size_t totalSize = -1;  //FIRST LINE : TOTAL MEM SIZE
 	fscanf(f, "%zu", &totalSize);
 	
