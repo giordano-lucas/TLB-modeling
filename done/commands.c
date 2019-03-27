@@ -34,7 +34,8 @@ int program_init(program_t* program){
 	init_virt_addr(&v,0,0,0,0,0);
 	command_t command0 = {0,0,0,0,v}; 
 	program->listing = calloc(startCommandsAllocated, sizeof(command_t));
-	M_EXIT_IF_NULL(program->listing, startCommandsAllocated*sizeof(command_t));
+	//M_EXIT_IF_NULL(program->listing, startCommandsAllocated*sizeof(command_t));
+	M_REQUIRE_NON_NULL(program->listing);
 	
 	for (int i = 0 ; i < MAX_SIZE_LISTING ; ++i){
 		(program->listing)[i] = command0;
@@ -424,4 +425,13 @@ int program_read(const char* filename, program_t* program){
 		program_add_command(program, &newC);
 		}
 	return ERR_NONE;
+	}
+/**
+ * @brief "Destructor" for program_t: free its content.
+ * @param program the program to be filled from file.
+ * @return ERR_NONE if ok, appropriate error code otherwise.
+ */
+int program_free(program_t* program){
+	free(program->listing);
+	program->listing = NULL;
 	}

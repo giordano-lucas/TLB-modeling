@@ -4,7 +4,7 @@
  * @file memory.h
  * @brief Functions for dealing wih the content of the memory (page directories and data).
  *
- * @author Mirjana Stojilovic & Jean-Cédric Chappelier
+ * @author Mirjana Stojilovic & Jean-CÃ©dric Chappelier
  * @date 2018-19
  */
 
@@ -53,7 +53,7 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 	fseek(file, 0L, SEEK_END);
 	// indique la position, et donc la taille (en octets)
 	*mem_capacity_in_bytes = (size_t) ftell(file);
-	// revient au début du fichier (pour le lire par la suite)
+	// revient au dÃ©but du fichier (pour le lire par la suite)
 	rewind(file);
 	
 	//allocate memory
@@ -156,7 +156,7 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
  * @return  error code
  */
 
-int vmem_page_dump_with_options(const void *mem_space, const virt_addr_t* from,
+int vmem_page_dump_with_options(const void mem_space, const virt_addr_t from,
                                 addr_fmt_t show_addr, size_t line_size, const char* sep);
 
 
@@ -164,4 +164,3 @@ int vmem_page_dump_with_options(const void *mem_space, const virt_addr_t* from,
 
 
 #define vmem_page_dump(mem, from) vmem_page_dump_with_options(mem, from, OFFSET, 16, " ")
-
