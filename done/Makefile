@@ -21,7 +21,6 @@ LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
 all:: test-commands
 test-addr :: tests.h util.h addr.h addr_mng.o
 
-
 test-memory:: test-memory.c commands.o page_walk.o memory.h
 test-commands: test-commands.c commands.o addr_mng.o error.h
 page_walk.o :: page_walk.c addr.h error.h addr_mng.o
