@@ -202,7 +202,7 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 		virt_addr_t virt;
 		init_virt_addr64(&virt, location);
 		phy_addr_t phy;
-		page_walk(*memory, &location, &phy);
+		page_walk(*memory, &virt, &phy);
 		uint64_t physical = (phy.page_offset | (phy.phy_page_num << PAGE_OFFSET));
 		page_file_read(memory, totalSize, physical, pageLocation);
 	}
