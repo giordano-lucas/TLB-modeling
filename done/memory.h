@@ -4,7 +4,7 @@
  * @file memory.h
  * @brief Functions for dealing wih the content of the memory (page directories and data).
  *
- * @author Mirjana Stojilovic & Jean-Cédric Chappelier
+ * @author Mirjana Stojilovic & Jean-CÃ©dric Chappelier
  * @date 2018-19
  */
 
@@ -12,6 +12,8 @@
 #include <stdlib.h> // for size_t and free()
 #include <stdio.h>
 #include "error.h"
+#include <ctype.h>
+#include <inttypes.h>
 
 /**
  * @brief enum type to describe how to print address;
@@ -53,7 +55,7 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 	fseek(file, 0L, SEEK_END);
 	// indique la position, et donc la taille (en octets)
 	*mem_capacity_in_bytes = (size_t) ftell(file);
-	// revient au début du fichier (pour le lire par la suite)
+	// revient au dÃ©but du fichier (pour le lire par la suite)
 	rewind(file);
 	
 	//allocate memory
@@ -75,7 +77,7 @@ int page_file_read(const void** memory,size_t memorySize, const uint64_t addr, c
 		M_REQUIRE_NON_NULL(file);
 		
 		void* memoryFromAddr = &((*memory)[addr]);
-		size_t nb_read = fread(memoryFromAddr, sizeof(byte_t), PAGE_SIZE);
+		size_t nb_read = fread(memoryFromAddr, sizeof(byte_t), PAGE_SIZE,file);
 		M_REQUIRE(nb_read == PAGE_SIZE, ERR_IO, "Error reading file : %c", ' ');
 		return ERR_NONE;
 	}
@@ -101,7 +103,7 @@ int page_file_read(const void** memory,size_t memorySize, const uint64_t addr, c
 #define maxFileSize 100
 
 int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes){
-	FILE* f = fopen(filename, "r");
+	FILE* f = fopen(master_filename, "r");
 	size_t totalSize = -1;  //FIRST LINE : TOTAL MEM SIZE
 	fscanf(f, "%zu", &totalSize);
 	
@@ -156,7 +158,7 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
  * @return  error code
  */
 
-int vmem_page_dump_with_options(const void *mem_space, const virt_addr_t* from,
+int vmem_page_dump_with_options(const void mem_space, const virt_addr_t from,
                                 addr_fmt_t show_addr, size_t line_size, const char* sep);
 
 
@@ -164,4 +166,3 @@ int vmem_page_dump_with_options(const void *mem_space, const virt_addr_t* from,
 
 
 #define vmem_page_dump(mem, from) vmem_page_dump_with_options(mem, from, OFFSET, 16, " ")
-
