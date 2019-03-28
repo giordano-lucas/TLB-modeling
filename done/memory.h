@@ -106,7 +106,8 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	FILE* f = fopen(master_filename, "r");
 	size_t totalSize = -1;  //FIRST LINE : TOTAL MEM SIZE
 	fscanf(f, "%zu", &totalSize);
-	
+
+
 	char pgd_location[maxFileSize];  //SECONDE LINE : PGD
 	fgets(pgd_location, maxFileSize, f);
 	strtok(pgd_location, "\n"); //removes newline char at the end
@@ -117,7 +118,7 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	for(size_t i =0; i < nb_tables ; i++){
 		char physicalAddress[10];
 		fscanf("%s", physicalAddress);
-		uint32_t location = strtoul(physicalAddress, (void)char**, 16);
+		uint32_t location = strtoul(physicalAddress, (char**)(NULL), 16);
 		
 		char pageLocation[maxFileSize];  
 		fgets(pageLocation, maxFileSize, f);
@@ -130,7 +131,7 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	while(!feof(f)){
 		char physicalAddress[18];
 		fscanf("%s", physicalAddress);
-		uint64_t location = strtoull(physicalAddress, (void)char**, 16);
+		uint64_t location = strtoull(physicalAddress, (char**)(NULL), 16);
 		
 		char pageLocation[maxFileSize];  
 		fgets(pageLocation, maxFileSize, f);
@@ -158,11 +159,7 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
  * @return  error code
  */
 
-int vmem_page_dump_with_options(const void mem_space, const virt_addr_t from,
+int vmem_page_dump_with_options(const void *mem_space, const virt_addr_t* from,
                                 addr_fmt_t show_addr, size_t line_size, const char* sep);
-
-
-
-
 
 #define vmem_page_dump(mem, from) vmem_page_dump_with_options(mem, from, OFFSET, 16, " ")
