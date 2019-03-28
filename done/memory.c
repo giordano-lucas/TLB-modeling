@@ -10,6 +10,7 @@
 #define __USE_MINGW_ANSI_STDIO 1
 #endif
 
+#include "addr.h"
 #include "memory.h"
 #include "page_walk.h"
 #include "addr_mng.h"

@@ -14,6 +14,7 @@
 #include "error.h"
 #include <ctype.h>
 #include <inttypes.h>
+#include "addr_mng.h"
 
 /**
  * @brief enum type to describe how to print address;
