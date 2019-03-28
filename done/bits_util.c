@@ -1,14 +1,15 @@
 
 /**
- * @file tests.c
- * @brief Utilities for tests
+ * @file bits_util.c
+ * 
  *
- * @author Valérian Rousset
- * @date 2017
+ * @author Giordanno Lucas
+ * @date 2019
  */
 
 #include <stdlib.h> // EXIT_FAILURE
 #include <check.h>
+#include "bits_util.h"
 #include "error.h"
 /*
  * Creates a 16 bits mask of size "size" (nb of 1's)

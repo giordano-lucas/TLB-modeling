@@ -24,10 +24,12 @@ test-addr :: tests.h util.h addr.h addr_mng.o
 test-memory:: test-memory.c commands.o page_walk.o memory.o error.o util.h addr_mng.o
 test-commands: test-commands.c commands.o addr_mng.o error.h
 memory.o :: memory.c memory.h page_walk.o util.h addr_mng.o error.o addr.h
-page_walk.o :: page_walk.c addr.h error.h addr_mng.o
+page_walk.o :: page_walk.c addr.h error.h addr_mng.o bits_util.o
 error.o :: error.c error.h
 commands.o ::  commands.c commands.h addr.h mem_access.h addr_mng.o error.o
-addr_mng.o :: addr_mng.c addr_mng.h error.c error.h bits_util.h
+bits_util.o :: bits_util.c bits_util.h error.h
+addr_mng.o :: addr_mng.c addr_mng.h error.o bits_util.o
+
 # ----------------------------------------------------------------------
 # This part is to make your life easier. See handouts how to make use of it.
 

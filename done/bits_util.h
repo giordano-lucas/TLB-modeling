@@ -9,6 +9,7 @@
  */
 
 #include <stdlib.h> // EXIT_FAILURE
+#include <stdio.h>
 #include <check.h>
 #include "error.h"
 /*
