@@ -8,7 +8,19 @@
 #include "addr.h"
 #include "error.h"
 #include "addr_mng.h"
-#include "bits_util.h"
+/*
+ * Creates a 16 bits mask of size "size" (nb of 1's)
+ */
+uint16_t mask16(size_t size){
+	uint16_t mask = 0;
+	if (size == 16)
+		return ~mask;
+	else {
+		mask = 1;
+		mask = (mask << size) - 1;
+		return mask;
+	}
+}
 
 #define START_PAGE_TABLE 0
 static inline pte_t read_page_entry(const pte_t * start, pte_t page_start, uint16_t index);
