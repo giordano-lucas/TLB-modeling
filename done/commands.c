@@ -14,7 +14,7 @@
 int handleRead(command_t* command, FILE* input);
 int handleWrite(command_t* command, FILE* input);
 int handleTypeSize(command_t* command, FILE* input);
-int readUntilNextWhiteSpace(FILE* input, char buffer[]);
+int readUntilNextWhiteSpace(FILE* input, char buffer[], size_t* s);
 int program_resize(program_t* prog, size_t newSize);
 
 #define startCommandsAllocated 10
@@ -29,15 +29,21 @@ int program_init(program_t* program){
 	M_REQUIRE_NON_NULL(program);
 	program->nb_lines = 0;
 	program->allocated = 10;
-	
 	virt_addr_t v;
 	init_virt_addr(&v,0,0,0,0,0);
 	command_t command0 = {0,0,0,0,v}; 
 	program->listing = calloc(startCommandsAllocated, sizeof(command_t));
+<<<<<<< HEAD
 	M_EXIT_IF_NULL(program->listing, startCommandsAllocated*sizeof(command_t));
+||||||| merged common ancestors
+	//M_EXIT_IF_NULL(program->listing, startCommandsAllocated*sizeof(command_t));
+=======
+	//M_EXIT_IF_NULL(program->listing, startCommandsAllocated*sizeof(command_t));
+	
+>>>>>>> 4734dbb4d2bb728e1d0407dd6ea808bddc3bbfbe
 	M_REQUIRE_NON_NULL(program->listing);
 	
-	for (int i = 0 ; i < MAX_SIZE_LISTING ; ++i){
+	for (int i = 0 ; i < program->allocated ; ++i){
 		(program->listing)[i] = command0;
 		
 	}	
@@ -74,7 +80,7 @@ int print_word_t_as_byte(FILE* output, const word_t word){
  */
 int print_uint_64(FILE* output, const uint64_t toPrint){
 	M_REQUIRE_NON_NULL(output);
-	fprintf(output, "0x%016\n" PRIX64, toPrint);
+	fprintf(output, "0x%016" PRIX64 "\n", toPrint);
 	return ERR_NONE;
 }
 /**
@@ -147,12 +153,18 @@ int program_shrink(program_t* program){
 	}	
 	
 	
-	int program_resize(program_t* prog, size_t newSize){
+		int program_resize(program_t* prog, size_t newSize){
 		M_REQUIRE_NON_NULL(prog);
+		M_REQUIRE_NON_NULL(prog->listing);
 		program_t copy = *prog;
 		copy.allocated = newSize;
-		M_REQUIRE(!(copy.allocated > (SIZE_MAX/sizeof(command_t)) || (copy.listing = realloc(copy.listing, copy.allocated*sizeof(command_t))) == NULL ), ERR_MEM, "Could not reallocate enough size %c", ' ');
+		
+		if(copy.allocated > (SIZE_MAX/sizeof(command_t)) || (copy.listing = realloc(copy.listing, copy.allocated*sizeof(command_t))) == NULL ){
+				return ERR_MEM;
+		}
+		
 		*prog = copy;
+		
 		return ERR_NONE;
 	}
 	
@@ -181,13 +193,15 @@ int program_add_command(program_t* program, const command_t* command){
 	 M_REQUIRE(!(command->type == INSTRUCTION && command->order == WRITE), ERR_BAD_PARAMETER, "Cannot write with an instruction%c", ' ');
 	//addr virtuelle invalide
 	 M_REQUIRE((command->vaddr.page_offset % command->data_size == 0), ERR_ADDR, "Page Offset size = %" PRIu16 " must be a multiple of data size", command->vaddr.page_offset);
-
-	while(program->nb_lines > program->allocated){
-		M_REQUIRE(program_resize(program, program->allocated*2) == ERR_NONE, ERR_MEM, "Could not resize %c", " ");
+	
+	while(program->nb_lines >= program->allocated){
+		M_REQUIRE(program_resize(program, (program->allocated)*2) == ERR_NONE, ERR_MEM, "Could not resize %c", " ");
 	}
+	
 	// à vérifier si on doit copier les pointeurs ou pas
 	program->listing[program->nb_lines] = *command;
 	program->nb_lines++;
+	
 	return ERR_NONE;
 	
 	}
@@ -209,13 +223,15 @@ int program_add_command(program_t* program, const command_t* command){
  **/
 int readCommand(FILE* input, command_t* command){
 	M_REQUIRE_NON_NULL(input);
-	
 	// prepare for reading R or W
 	char buffer[MAX_SIZE_BUFFER];
+	
 	// read the first character of a command (should be 'R' on 'W')
-	size_t sizeRead = readUntilNextWhiteSpace(input,buffer);
+	size_t sizeRead;
+	readUntilNextWhiteSpace(input,buffer, &sizeRead);
 	M_REQUIRE(sizeRead == 1, ERR_IO, "First character of a line must be 1 (and then followed by a space(' '))%c", ' ');
 	
+    
 	switch (buffer[0]) {
         case 'R':
             handleRead(command, input);
@@ -224,7 +240,7 @@ int readCommand(FILE* input, command_t* command){
 			handleWrite(command, input);
 			break;
         default:
-			M_REQUIRE(0,ERR_IO, "First character of a line should be R or W%c", ' '); 
+			M_REQUIRE(0,ERR_IO, "First character of a line should be R or W and not %c",buffer[0] ); 
             break;
     }
     return ERR_NONE;
@@ -255,27 +271,33 @@ int readCommand(FILE* input, command_t* command){
  * 
  * 
  **/
-int readUntilNextWhiteSpace(FILE* input, char buffer[]){
+int readUntilNextWhiteSpace(FILE* input, char buffer[], size_t* nbOfBytes){
 	M_REQUIRE_NON_NULL(input);
 	int c = 0; 
 	bool hasReadOneNonWhiteSpace = false; // flag to say that we need to read at lest one non white space char to exit the function
-	size_t nbOfBytes = 0;
+	*nbOfBytes = 0;
 	while (!feof(input) && !ferror(input) && !(isspace(c) && hasReadOneNonWhiteSpace)){
+		
 		// we iterate until we find a whitespace (and at least one non whitespace has been read) or until the end of the file
+		
 		c = fgetc(input);
+		
 		if (!isspace(c) || c == '\n'){ // if the char is not a white space then it's added into the buffer. 
 			//Moreover if we add a \n then it can only be the last charater since the loop condition at the next iteration will be false (because of isspace(c) && hasReadOneNonWhiteSpace)
 			// the last \n is usefull to check if a command is terminated by a '\n'
 		    hasReadOneNonWhiteSpace = true; // if we enter here it means that we have read a non whitespace char (or a \n but as mentionned before this is the last char that could be added)
-			if (nbOfBytes >= MAX_SIZE_BUFFER){ // if more than MAX_SIZE_BUFFER are read then it means that it is an invalid command (see def of MAX_SIZE_BUFFER for more details)
+			if (*nbOfBytes >= MAX_SIZE_BUFFER){ // if more than MAX_SIZE_BUFFER are read then it means that it is an invalid command (see def of MAX_SIZE_BUFFER for more details)
+				
 				return ERR_IO;
 				}
-			buffer[nbOfBytes] = c;
-			nbOfBytes++;
+				
+			buffer[*nbOfBytes] = c;
+			
+			(*nbOfBytes)++;
 			}
 		}
 		
-	return nbOfBytes;
+	return ERR_NONE;
 	}
 	
 	/**
@@ -299,7 +321,9 @@ int isHexString(char string[], size_t start, size_t length){
 	 */
 int handleTypeSize(command_t* command, FILE* input){
 	char buffer[MAX_SIZE_BUFFER];
-	size_t s = readUntilNextWhiteSpace(input, buffer);
+	
+	size_t s;
+	readUntilNextWhiteSpace(input, buffer, &s);
 	M_REQUIRE(s <= 2 && s>0, ERR_BAD_PARAMETER, "SIZE OF TYPE MUST BE INF TO 2%c", ' ');
 	buffer[s] = '\0';  //sets the last char in the buffer to \0 in order to use strcmp that compares strings and returns 0 if they are equal
 	mem_access_t t;
@@ -340,7 +364,7 @@ int handleRead(command_t* command, FILE* input){
 	char buffer[MAX_SIZE_BUFFER];
 	command->write_data = 0;  //since it is a read
 	//===================VIRT ADDR=================================
-	s = readUntilNextWhiteSpace(input, buffer);
+	readUntilNextWhiteSpace(input, buffer, &s);
 	M_REQUIRE(s >= 4 && s <= 20, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
 	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
 	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
@@ -368,7 +392,7 @@ int handleWrite(command_t* command, FILE* input){
 	char buffer[MAX_SIZE_BUFFER];
 	size_t s;
 	//=======================WRITE_DATA=========================
-	s = readUntilNextWhiteSpace(input, buffer);
+	readUntilNextWhiteSpace(input, buffer, &s);
 	M_REQUIRE(s >= 4 && s <= 8+3, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
 	M_REQUIRE(buffer[0] == '0', ERR_BAD_PARAMETER, "virt addr must start with 0x%c", ' ');
 	M_REQUIRE(buffer[1] == 'x', ERR_BAD_PARAMETER, "virt addr must start with 0x%c", ' ');
@@ -383,7 +407,7 @@ int handleWrite(command_t* command, FILE* input){
 	
 	
 	//=======================VIRT ADDR==========================
-	s = readUntilNextWhiteSpace(input, buffer);
+	readUntilNextWhiteSpace(input, buffer, &s);
 	M_REQUIRE(s >= 4 &&s <= 20, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
 	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
 	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
@@ -413,6 +437,7 @@ int program_read(const char* filename, program_t* program){
 	FILE* file= NULL;
 	file = fopen(filename, "r");
 	if (file == NULL) return ERR_IO;
+	
 	program_init(program);
 	
 	
@@ -421,7 +446,10 @@ int program_read(const char* filename, program_t* program){
 		virt_addr_t v;
 		init_virt_addr(&v,0,0,0,0,0);
 		command_t newC = {0,0,0,0,v}; 
+		
 		readCommand(file, &newC);
+		
+		
 		program_add_command(program, &newC);
 		}
 	return ERR_NONE;
@@ -432,6 +460,8 @@ int program_read(const char* filename, program_t* program){
  * @return ERR_NONE if ok, appropriate error code otherwise.
  */
 int program_free(program_t* program){
+	M_REQUIRE_NON_NULL(program);
 	free(program->listing);
 	program->listing = NULL;
+	return ERR_NONE;
 	}

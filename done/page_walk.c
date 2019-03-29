@@ -11,7 +11,7 @@
 /*
  * Creates a 16 bits mask of size "size" (nb of 1's)
  */
-uint16_t mask16(size_t size){
+uint16_t maskof16(size_t size){
 	uint16_t mask = 0;
 	if (size == 16)
 		return ~mask;
@@ -69,7 +69,7 @@ int page_walk(const void* mem_space, const virt_addr_t* vaddr, phy_addr_t* paddr
  */
 static inline pte_t read_page_entry(const pte_t * start, pte_t page_start, uint16_t index){
 	M_REQUIRE_NON_NULL(start);
-	M_REQUIRE( ((mask16(PAGE_OFFSET) & index) == index), ERR_BAD_PARAMETER, "index should be on 12 bits %c"," ");
+	M_REQUIRE( ((maskof16(PAGE_OFFSET) & index) == index), ERR_BAD_PARAMETER, "index should be on 12 bits %c"," ");
 	
 	//check overflow 
 	 return start[page_start/sizeof(pte_t)+index]; 
