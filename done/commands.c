@@ -34,7 +34,7 @@ int program_init(program_t* program){
 	init_virt_addr(&v,0,0,0,0,0);
 	command_t command0 = {0,0,0,0,v}; 
 	program->listing = calloc(startCommandsAllocated, sizeof(command_t));
-	//M_EXIT_IF_NULL(program->listing, startCommandsAllocated*sizeof(command_t));
+	M_EXIT_IF_NULL(program->listing, startCommandsAllocated*sizeof(command_t));
 	M_REQUIRE_NON_NULL(program->listing);
 	
 	for (int i = 0 ; i < MAX_SIZE_LISTING ; ++i){

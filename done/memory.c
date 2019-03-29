@@ -125,6 +125,7 @@ int vmem_page_dump_with_options(const void *mem_space, const virt_addr_t* from,
 int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capacity_in_bytes){
 	M_REQUIRE_NON_NULL(filename);
 	M_REQUIRE_NON_NULL(memory);
+	M_REQUIRE_NON_NULL(*memory);
 	M_REQUIRE_NON_NULL(mem_capacity_in_bytes);
 	
 	FILE* file = fopen(filename, "rb");
