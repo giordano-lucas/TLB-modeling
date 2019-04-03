@@ -43,7 +43,7 @@ EOF
 # ======================================================================
 proceed() {
     # check we're up to date
-    if output="$(git st -suno)"; then
+    if output="$(git status -suno)"; then
         if [ -n "$output" ]; then
             echo "You have uncommited modifications:"
             echo "$output"
