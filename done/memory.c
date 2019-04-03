@@ -135,9 +135,9 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 	fseek(file, 0L, SEEK_END);
 	// indique la position, et donc la taille (en octets)
 	*mem_capacity_in_bytes = (size_t) ftell(file);
-	// revient au dÃ©but du fichier (pour le lire par la suite)
+	// revient au debut du fichier (pour le lire par la suite)
 	rewind(file);
-	
+	fprintf(stderr, "%zu", *mem_capacity_in_bytes);
 	//allocate memory
 	*memory = calloc(*mem_capacity_in_bytes, sizeof(byte_t));
 	M_REQUIRE_NON_NULL(*memory);
@@ -147,7 +147,7 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 	
 	return ERR_NONE;
 	}
-int page_file_read(const void** memory,size_t memorySize, const uint64_t addr, const char* filename){
+int page_file_read(void** memory,size_t memorySize, const uint64_t addr, const char* filename){
 		M_REQUIRE_NON_NULL(memory);
 		M_REQUIRE_NON_NULL(*memory);
 		M_REQUIRE_NON_NULL(filename);
@@ -157,7 +157,8 @@ int page_file_read(const void** memory,size_t memorySize, const uint64_t addr, c
 		M_REQUIRE_NON_NULL(file);
 		
 		void* memoryFromAddr = &((*memory)[addr]);
-		
+
+		M_REQUIRE_NON_NULL(memoryFromAddr);
 		size_t nb_read = fread(memoryFromAddr, sizeof(byte_t), PAGE_SIZE,file);
 		M_REQUIRE(nb_read == PAGE_SIZE, ERR_IO, "Error reading file : %c", ' ');
 		return ERR_NONE;
@@ -166,36 +167,43 @@ int page_file_read(const void** memory,size_t memorySize, const uint64_t addr, c
 #define maxFileSize 100
 
 int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes){
+	
 	FILE* f = fopen(master_filename, "r");
-	size_t totalSize = -1;  //FIRST LINE : TOTAL MEM SIZE
-	fscanf(f, "%zu", &totalSize);
-
+	
+	fscanf(f, "%zu", mem_capacity_in_bytes);
+	M_REQUIRE(fgetc(f) == '\n', ERR_IO, "Didn't get a new line : error %c", " ");
+	//alloc memory first
+	*memory = calloc(*mem_capacity_in_bytes, sizeof(byte_t));
 
 	char pgd_location[maxFileSize];  //SECONDE LINE : PGD
 	fgets(pgd_location, maxFileSize, f);
 	strtok(pgd_location, "\n"); //removes newline char at the end
-	
+	fprintf(stderr, "pgd_location : %s", pgd_location);
 	size_t nb_tables; //THIRD LINE : NUMBER OF PDM+PUD+PTE
 	fscanf(f, "%zu", &nb_tables);
-	
+	fprintf(stderr,"tables : %zu", nb_tables);
 	for(size_t i =0; i < nb_tables ; i++){
-		char physicalAddress[10];
-		fscanf("%s", physicalAddress);
+		char physicalAddress[20];
+		fscanf(f, "%s", physicalAddress);
 		uint32_t location = strtoul(physicalAddress, (char**)(NULL), 16);
 		
+		fgetc(f);
 		char pageLocation[maxFileSize];  
 		fgets(pageLocation, maxFileSize, f);
+		fprintf(stderr, "\n\npagelocation : %s", pageLocation);
 		strtok(pageLocation, "\n"); //removes newline char at the end
-		
+		fprintf(stderr, "\n\npagelocation stripped :%s", pageLocation);
 		//USE PAGE FILE READ FOR EVERY OF THOSE TABLES
-		page_file_read(memory, totalSize,location, pageLocation );
+		fprintf(stderr,"\nlocation : %x", location);
+		page_file_read(memory, *mem_capacity_in_bytes,location, pageLocation );
 	}
 	
 	while(!feof(f)){
 		char physicalAddress[18];
-		fscanf("%s", physicalAddress);
+		fscanf(f,"%s", physicalAddress);
 		uint64_t location = strtoull(physicalAddress, (char**)(NULL), 16);
 		
+		fgetc(f);
 		char pageLocation[maxFileSize];  
 		fgets(pageLocation, maxFileSize, f);
 		strtok(pageLocation, "\n"); //removes newline char at the end
@@ -204,10 +212,14 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 		virt_addr_t virt;
 		init_virt_addr64(&virt, location);
 		phy_addr_t phy;
+		
+		//fprintf(stderr, "\nvirt addr : : %lx", location);
 		page_walk(*memory, &virt, &phy);
 		uint64_t physical = (phy.page_offset | (phy.phy_page_num << PAGE_OFFSET));
-		page_file_read(memory, totalSize, physical, pageLocation);
+		//fprintf(stderr, "\nphysical : %lx", physical);
+		page_file_read(memory, *mem_capacity_in_bytes, physical, pageLocation);
 	}
+	return ERR_NONE;
 }
 
 

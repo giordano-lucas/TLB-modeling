@@ -366,7 +366,7 @@ int handleRead(command_t* command, FILE* input){
 	for(int i =0; i < 3; i++){ //fills the @0x with spaces so strtoull can parse the hex
 		buffer[i] = ' ';
 	}
-	
+	buffer[s] = '\0';
 	M_REQUIRE(isHexString(buffer, 3, s-1), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' '); //requires that it indeed is a hex string
 	uint64_t virt = (uint64_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64, parses the virtual address in the buffer
 	init_virt_addr64(&(command->vaddr), virt);
@@ -393,6 +393,7 @@ int handleWrite(command_t* command, FILE* input){
 	for(int i =0; i < 2; i++){ //fills with spaces so the parser can work without the 0x
 		buffer[i] = ' ';
 	}
+	buffer[s] = '\0';
 	M_REQUIRE(isHexString(buffer, 2, s), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' '); //if indeed a hex string
 	for (int i =0 ; i<s; ++i) {
 		printf(" ================================== data : %c \n", buffer[i]);
@@ -413,7 +414,7 @@ int handleWrite(command_t* command, FILE* input){
 	for(int i =0; i < 3; i++){ //fills with spaces so the parser can work without the @0x
 		buffer[i] = ' ';
 	}
-	
+	buffer[s] = '\0';
 	M_REQUIRE(isHexString(buffer, 3, s-1), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' '); //if indeed a hex string
 	uint64_t virt = (uint64_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64, parses the hex string
 	init_virt_addr64(&(command->vaddr), virt);

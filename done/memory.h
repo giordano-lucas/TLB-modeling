@@ -46,7 +46,7 @@ typedef enum addr_fmt addr_fmt_t;
  */
 
 int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capacity_in_bytes);
-int page_file_read(const void** memory,size_t memorySize, const uint64_t addr, const char* filename);
+int page_file_read( void** memory,size_t memorySize, const uint64_t addr, const char* filename);
 
 /**
  * @brief Create and initialize the whole memory space from a provided
