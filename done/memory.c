@@ -157,6 +157,7 @@ int page_file_read(const void** memory,size_t memorySize, const uint64_t addr, c
 		M_REQUIRE_NON_NULL(file);
 		
 		void* memoryFromAddr = &((*memory)[addr]);
+		
 		size_t nb_read = fread(memoryFromAddr, sizeof(byte_t), PAGE_SIZE,file);
 		M_REQUIRE(nb_read == PAGE_SIZE, ERR_IO, "Error reading file : %c", ' ');
 		return ERR_NONE;

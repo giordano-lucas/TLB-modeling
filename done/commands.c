@@ -33,14 +33,7 @@ int program_init(program_t* program){
 	init_virt_addr(&v,0,0,0,0,0);
 	command_t command0 = {0,0,0,0,v}; 
 	program->listing = calloc(startCommandsAllocated, sizeof(command_t));
-<<<<<<< HEAD
 	M_EXIT_IF_NULL(program->listing, startCommandsAllocated*sizeof(command_t));
-||||||| merged common ancestors
-	//M_EXIT_IF_NULL(program->listing, startCommandsAllocated*sizeof(command_t));
-=======
-	//M_EXIT_IF_NULL(program->listing, startCommandsAllocated*sizeof(command_t));
-	
->>>>>>> 4734dbb4d2bb728e1d0407dd6ea808bddc3bbfbe
 	M_REQUIRE_NON_NULL(program->listing);
 	
 	for (int i = 0 ; i < program->allocated ; ++i){
@@ -390,7 +383,7 @@ int handleWrite(command_t* command, FILE* input){
 	command->order = WRITE;
 	handleTypeSize(command, input); //fills type and size
 	char buffer[MAX_SIZE_BUFFER];
-	size_t s;
+	size_t s =0;
 	//=======================WRITE_DATA=========================
 	readUntilNextWhiteSpace(input, buffer, &s);
 	M_REQUIRE(s >= 4 && s <= 8+3, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
@@ -401,10 +394,14 @@ int handleWrite(command_t* command, FILE* input){
 		buffer[i] = ' ';
 	}
 	M_REQUIRE(isHexString(buffer, 2, s), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' '); //if indeed a hex string
-	
+	for (int i =0 ; i<s; ++i) {
+		printf(" ================================== data : %c \n", buffer[i]);
+		}
+	puts( " =============================================================== ************");
+	fflush(stdout);
 	command->write_data = (word_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to word_t, parses the hex string
-	
-	
+	printf(" ================================== data : %"PRIx32" \n", command->write_data);
+	fflush(stdout);
 	
 	//=======================VIRT ADDR==========================
 	readUntilNextWhiteSpace(input, buffer, &s);
