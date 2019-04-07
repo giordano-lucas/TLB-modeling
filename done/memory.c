@@ -14,6 +14,7 @@
 #include "memory.h"
 #include "page_walk.h"
 #include "addr_mng.h"
+#include "stdbool.h"
 #include "util.h" // for SIZE_T_FMT
 #include "error.h"
 #include <stdio.h>
@@ -152,14 +153,48 @@ int page_file_read(void** memory,size_t memorySize, const uint64_t addr, const c
 		M_REQUIRE_NON_NULL(filename);
 		// test that we can add an entire page at the given address 
 		M_REQUIRE((addr + PAGE_SIZE) <= memorySize, ERR_MEM, "Cannot add a page of 4kB at the address : %"PRIx64" for memory size : %zu", addr,memorySize);
+		//fprintf(stderr, "filename : %s", filename);
 		FILE* file = fopen(filename, "rb");
 		M_REQUIRE_NON_NULL(file);
 		
-		void* memoryFromAddr = &((*memory)[addr]);
+		byte_t* memoryFromAddr = (byte_t*)*memory; 
+		memoryFromAddr += addr;
 		M_REQUIRE_NON_NULL(memoryFromAddr);
+		fprintf(stderr, "Old mem : %p, new mem : %p \n", *memory, memoryFromAddr);
 		size_t nb_read = fread(memoryFromAddr, sizeof(byte_t), PAGE_SIZE,file);
 		M_REQUIRE(nb_read == PAGE_SIZE, ERR_IO, "Error reading file : %c", ' ');
+		//fprintf(stderr, "\n size read : %zu", nb_read);
 		return ERR_NONE;
+	}
+	
+	#define MAX_SIZE_BUFFER 50
+	int readUntilNextSpace(FILE* input, char buffer[], size_t* nbOfBytes){
+	M_REQUIRE_NON_NULL(input);
+	int c = 0; 
+	bool hasReadOneNonWhiteSpace = false; // flag to say that we need to read at lest one non white space char to exit the function
+	*nbOfBytes = 0;
+	while (!feof(input) && !ferror(input) && !(isspace(c) && hasReadOneNonWhiteSpace)){
+		
+		// we iterate until we find a whitespace (and at least one non whitespace has been read) or until the end of the file
+		
+		c = fgetc(input);
+		
+		if (!isspace(c) || c == '\n'){ // if the char is not a white space then it's added into the buffer. 
+			//Moreover if we add a \n then it can only be the last charater since the loop condition at the next iteration will be false (because of isspace(c) && hasReadOneNonWhiteSpace)
+			// the last \n is usefull to check if a command is terminated by a '\n'
+		    hasReadOneNonWhiteSpace = true; // if we enter here it means that we have read a non whitespace char (or a \n but as mentionned before this is the last char that could be added)
+			if (*nbOfBytes >= MAX_SIZE_BUFFER){ // if more than MAX_SIZE_BUFFER are read then it means that it is an invalid command (see def of MAX_SIZE_BUFFER for more details)
+				
+				return ERR_IO;
+				}
+				
+			buffer[*nbOfBytes] = c;
+			
+			(*nbOfBytes)++;
+			}
+		}
+		
+	return ERR_NONE;
 	}
 
 #define maxFileSize 100
@@ -177,45 +212,55 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	fgets(pgd_location, maxFileSize, f);
 	strtok(pgd_location, "\n"); //removes newline char at the end
 	fprintf(stderr, "pgd_location : %s", pgd_location);
+	page_file_read(memory, *mem_capacity_in_bytes, 0, pgd_location);
 	size_t nb_tables; //THIRD LINE : NUMBER OF PDM+PUD+PTE
 	fscanf(f, "%zu", &nb_tables);
-	fprintf(stderr,"tables : %zu", nb_tables);
+	//fprintf(stderr,"tables : %zu", nb_tables);
 	for(size_t i =0; i < nb_tables ; i++){
-		char physicalAddress[20];
-		fscanf(f, "%s", physicalAddress);
-		uint32_t location = strtoul(physicalAddress, (char**)(NULL), 16);
-		
+		uint32_t location;
+		fscanf(f, "%" PRIX32, &location);
 		fgetc(f);
 		char pageLocation[maxFileSize];  
 		fgets(pageLocation, maxFileSize, f);
-		fprintf(stderr, "\n\npagelocation : %s", pageLocation);
 		strtok(pageLocation, "\n"); //removes newline char at the end
-		fprintf(stderr, "\n\npagelocation stripped :%s", pageLocation);
+		//fprintf(stderr, "\n\npagelocation stripped :%s", pageLocation);
 		//USE PAGE FILE READ FOR EVERY OF THOSE TABLES
-		fprintf(stderr,"\nlocation : %x", location);
+		//fprintf(stderr,"\naddr : 0x%x", location);
 		page_file_read(memory, *mem_capacity_in_bytes,location, pageLocation );
 	}
 	
-	while(!feof(f)){
-		char physicalAddress[18];
-		fscanf(f,"%s", physicalAddress);
-		uint64_t location = strtoull(physicalAddress, (char**)(NULL), 16);
+	while(!feof(f) && !ferror(f)){
 		
-		fgetc(f);
-		char pageLocation[maxFileSize];  
-		fgets(pageLocation, maxFileSize, f);
-		strtok(pageLocation, "\n"); //removes newline char at the end
+		uint64_t virtaddr;
+		char string[maxFileSize];
+		size_t s;
+		readUntilNextSpace(f, string,&s );
+		if(s <= 0){return 0;}
+		else{
+			string[s] = '\0';
+			virtaddr = strtoull(string, (char**)NULL, 16);
+			string[s] = ' ';
+		}
+		
+		
+		readUntilNextSpace(f, string, &s);
+		if(s <= 0){return 0;}
+		string[s-1] = '\0';
 		//CHANGE VIRTUAL TO PHYSICAL AND CALL PAGE READ
-		
 		virt_addr_t virt;
-		init_virt_addr64(&virt, location);
+		init_virt_addr64(&virt, virtaddr);
 		phy_addr_t phy;
 		
-		//fprintf(stderr, "\nvirt addr : : %lx", location);
+		fprintf(stderr, "\nvirt addr : : %"PRIX64 "\n", virtaddr);
+		print_virtual_address(stderr,&virt);
 		page_walk(*memory, &virt, &phy);
-		uint64_t physical = (phy.page_offset | (phy.phy_page_num << PAGE_OFFSET));
-		//fprintf(stderr, "\nphysical : %lx", physical);
-		page_file_read(memory, *mem_capacity_in_bytes, physical, pageLocation);
+		uint64_t physical = phy.phy_page_num;
+		print_physical_address(stderr, &phy);
+		fprintf(stderr, "\nphysical : %" PRIX64 "\n", physical);
+		
+		fprintf(stderr,"Location in memory of page :%sendoffile\n", string);
+		page_file_read(memory, *mem_capacity_in_bytes, physical, &string[0]);
+		//fprintf(stderr, "this page read");
 	}
 	return ERR_NONE;
 }
