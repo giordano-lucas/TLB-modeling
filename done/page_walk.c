@@ -8,6 +8,7 @@
 #include "addr.h"
 #include "error.h"
 #include "addr_mng.h"
+#include <inttypes.h>
 /*
  * Creates a 16 bits mask of size "size" (nb of 1's)
  */
@@ -41,11 +42,15 @@ int page_walk(const void* mem_space, const virt_addr_t* vaddr, phy_addr_t* paddr
 	//read pgd
 	page_begin = read_page_entry(mem_space,page_begin, vaddr->pgd_entry);
 	//read pud
+	fprintf(stderr, "=== PDG ===== 0x%"PRIX32"\n", page_begin);
 	page_begin = read_page_entry(mem_space,page_begin, vaddr->pud_entry);
 	//read pmd
+	fprintf(stderr, "=== PMD ===== 0x%"PRIX32"\n", page_begin);
 	page_begin = read_page_entry(mem_space,page_begin, vaddr->pmd_entry);
 	//read pte
+	fprintf(stderr, "=== PTE ===== 0x%"PRIX32"\n", page_begin);
 	page_begin = read_page_entry(mem_space,page_begin, vaddr->pte_entry);
+	fprintf(stderr, "=== LAST ===== 0x%"PRIX32"\n", page_begin);
 	//intialize phy addr
 	init_phy_addr(paddr, page_begin, vaddr->page_offset);
 	return ERR_NONE;

@@ -156,7 +156,7 @@ int page_file_read(void** memory,size_t memorySize, const uint64_t addr, const c
 		FILE* file = fopen(filename, "rb");
 		M_REQUIRE_NON_NULL(file);
 		
-		void* memoryFromAddr = &((*memory)[addr]);
+		void* memoryFromAddr = *memory + addr;
 
 		M_REQUIRE_NON_NULL(memoryFromAddr);
 		size_t nb_read = fread(memoryFromAddr, sizeof(byte_t), PAGE_SIZE,file);
