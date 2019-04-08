@@ -91,7 +91,8 @@ int main(int argc, char *argv[])
             const int error = init_virt_addr64(&vaddr, vaddr64);
             if (error != ERR_NONE) {
                 puts("Mauvaise adresse ==> Abandon");
-                return 0;
+                free(mem_space);
+                return 2;
             }
 
             vmem_page_dump_with_options(mem_space, &vaddr, t_fmt, 16, argv[4]);
@@ -100,8 +101,9 @@ int main(int argc, char *argv[])
 
     } else {
         error(argv[0], "problem initializing memory from provided file.");
-        return 1;
+        return 3;
     }
 
+    free(mem_space);
     return 0;
 }

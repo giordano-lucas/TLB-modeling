@@ -36,7 +36,8 @@ int tlb_flush(tlb_entry_t * tlb);
  *
  * @param vaddr pointer to virtual address
  * @param paddr (modified) pointer to physical address
- * @param tlb pointer to the beginning of the tlb
+ * @param tlb pointer to the beginning of the TLB
+ * @param replacement_policy the eviction/replacement policy used by the TLB
  * @return hit (1) or miss (0)
  */
 int tlb_hit(const virt_addr_t * vaddr,

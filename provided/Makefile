@@ -48,8 +48,9 @@ check:: all
 	  for file in tests/*.*.sh; do [ -x $$file ] || echo "Launching $$file"; ./$$file || exit 1; done; \
 	fi
 
-IMAGE=arashpz/feedback
+IMAGE=arashpz/feedback:latest
 feedback:
+	@docker pull $(IMAGE)
 	@docker run -it --rm -v ${PWD}:/home/tester/done $(IMAGE)
 
 SUBMIT_SCRIPT=../provided/submit.sh
