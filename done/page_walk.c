@@ -53,7 +53,7 @@ int page_walk(const void* mem_space, const virt_addr_t* vaddr, phy_addr_t* paddr
 	fprintf(stderr, "=== LAST ===== 0x%"PRIX32"\n", page_begin);
 	//intialize phy addr
 	fprintf(stderr, "page begin before : %d", page_begin);
-	init_phy_addr(paddr, page_begin<<PAGE_OFFSET, vaddr->page_offset);
+	init_phy_addr(paddr, page_begin, vaddr->page_offset);
 	fprintf(stderr, "page begin after : %d", paddr->phy_page_num);
 	return ERR_NONE;
 	}
