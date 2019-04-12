@@ -42,19 +42,14 @@ int page_walk(const void* mem_space, const virt_addr_t* vaddr, phy_addr_t* paddr
 	//read pgd
 	page_begin = read_page_entry(mem_space,page_begin, vaddr->pgd_entry);
 	//read pud
-	fprintf(stderr, "=== PDG ===== 0x%"PRIX32"\n", page_begin);
 	page_begin = read_page_entry(mem_space,page_begin, vaddr->pud_entry);
 	//read pmd
-	fprintf(stderr, "=== PMD ===== 0x%"PRIX32"\n", page_begin);
 	page_begin = read_page_entry(mem_space,page_begin, vaddr->pmd_entry);
 	//read pte
-	fprintf(stderr, "=== PTE ===== 0x%"PRIX32"\n", page_begin);
 	page_begin = read_page_entry(mem_space,page_begin, vaddr->pte_entry);
-	fprintf(stderr, "=== LAST ===== 0x%"PRIX32"\n", page_begin);
 	//intialize phy addr
-	fprintf(stderr, "page begin before : %d", page_begin);
 	init_phy_addr(paddr, page_begin, vaddr->page_offset);
-	fprintf(stderr, "page begin after : %d", paddr->phy_page_num);
+
 	return ERR_NONE;
 	}
 
@@ -79,6 +74,5 @@ static inline pte_t read_page_entry(const pte_t * start, pte_t page_start, uint1
 	M_REQUIRE( ((maskof16(PAGE_OFFSET) & index) == index), ERR_BAD_PARAMETER, "index should be on 12 bits %c"," ");
 	
 	//check overflow 
-	fprintf(stderr, "reading at addr : %lx\n", page_start/sizeof(pte_t) + index);
 		 return start[page_start/sizeof(pte_t)+index]; 
 }

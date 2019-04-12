@@ -395,13 +395,8 @@ int handleWrite(command_t* command, FILE* input){
 	}
 	buffer[s] = '\0';
 	M_REQUIRE(isHexString(buffer, 2, s), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' '); //if indeed a hex string
-	for (int i =0 ; i<s; ++i) {
-		printf(" ================================== data : %c \n", buffer[i]);
-		}
-	puts( " =============================================================== ************");
 	fflush(stdout);
 	command->write_data = (word_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to word_t, parses the hex string
-	printf(" ================================== data : %"PRIx32" \n", command->write_data);
 	fflush(stdout);
 	
 	//=======================VIRT ADDR==========================

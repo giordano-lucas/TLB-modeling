@@ -163,7 +163,7 @@ int page_file_read(void** memory,size_t memorySize, const uint64_t addr, const c
 		memoryFromAddr += addr;
 
 		M_REQUIRE_NON_NULL(memoryFromAddr);
-		fprintf(stderr, "Old mem : %p, new mem : %p \n", *memory, memoryFromAddr);
+		//fprintf(stderr, "Old mem : %p, new mem : %p \n", *memory, memoryFromAddr);
 		size_t nb_read = fread(memoryFromAddr, sizeof(byte_t), PAGE_SIZE,file);
 		M_REQUIRE(nb_read == PAGE_SIZE, ERR_IO, "Error reading file : %c", ' ');
 		//fprintf(stderr, "\n size read : %zu", nb_read);
@@ -229,6 +229,7 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 		//fprintf(stderr, "\n\npagelocation stripped :%s", pageLocation);
 		//USE PAGE FILE READ FOR EVERY OF THOSE TABLES
 		//fprintf(stderr,"\naddr : 0x%x", location);
+		fprintf(stderr, "\nplacing page : %s at address : 0x%lx", pageLocation, location );
 		page_file_read(memory, *mem_capacity_in_bytes,location, pageLocation );
 	}
 	
@@ -257,7 +258,7 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 		fprintf(stderr, "\nvirt addr : : %"PRIX64 "\n", virtaddr);
 		print_virtual_address(stderr,&virt);
 		page_walk(*memory, &virt, &phy);
-		uint64_t physical = phy.phy_page_num;
+		uint64_t physical = (phy.phy_page_num << PAGE_OFFSET )| phy.page_offset;
 		print_physical_address(stderr, &phy);
 		fprintf(stderr, "\nphysical : %" PRIX64 "\n", physical);
 		
