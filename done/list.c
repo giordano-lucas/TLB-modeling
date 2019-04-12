@@ -32,6 +32,9 @@ void init_list(list_t* this){
 	this->back = NULL;
 }
 //=============================================================
+/**
+ * @brief : helper function that frees a node
+ **/
 void freeNode(node_t* n){
 	free(n->next);
 	n->next = NULL;
@@ -63,6 +66,7 @@ node_t* createNode(const list_content_t* value, node_t* previous, node_t*last){
 	node_t* newNode = malloc(sizeof(node_t));
 	//error case
 	if (newNode == NULL) return NULL;
+	// initialization
 	newNode->previous = previous;
 	newNode->next = last;
 	newNode->value = *value;
@@ -196,13 +200,13 @@ void move_back(list_t* this, node_t* n){
  */
 int print_list(FILE* stream, const list_t* this){
 	int nbChar = 0;
-	nbChar += fprintf(stream,"List = {%c", ' ');
+	nbChar += fprintf(stream,"List = (%c", ' ');
 	node_t* current = this->front;
 	while(current != NULL) {
 		nbChar += fprintf(stream," %"PRIX32",", current->value);
 		current = current->next;
 		}
-	nbChar += fprintf(stream, "}%c\n", ' ');
+	nbChar += fprintf(stream, ")%c\n", ' ');
 	return nbChar;
 	}
 
@@ -214,12 +218,12 @@ int print_list(FILE* stream, const list_t* this){
  */
 int print_reverse_list(FILE* stream, const list_t* this){
 	int nbChar = 0;
-	nbChar += fprintf(stream,"List reversed = {%c", ' ');
+	nbChar += fprintf(stream,"List reversed = (%c", ' ');
 	node_t* current = this->back;
 	while(current != NULL) {
 		nbChar += fprintf(stream," %"PRIX32",", current->value);
 		current = current->previous;
 		}
-	nbChar += fprintf(stream, "}%c\n", ' ');
+	nbChar += fprintf(stream, ")%c\n", ' ');
 	return nbChar;
 }

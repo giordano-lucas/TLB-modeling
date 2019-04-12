@@ -23,6 +23,8 @@ test-addr :: test-addr.c test-addr.h tests.h util.h addr.h addr_mng.o error.o
 
 test-memory:: test-memory.c commands.o page_walk.o memory.o error.o addr_mng.o 
 test-commands: test-commands.c commands.o addr_mng.o error.o 
+test-tlb_simple:: test-tlb_simple.c error.h util.h addr_mng.h commands.h memory.h list.h tlb.h tlb_mng.h
+
 memory.o :: memory.c memory.h page_walk.o util.h addr_mng.o error.o addr.h
 page_walk.o :: page_walk.c addr.h error.h addr_mng.o 
 error.o :: error.c error.h

@@ -125,7 +125,6 @@ int init_virt_addr64(virt_addr_t * vaddr, uint64_t vaddr64){
 int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset){
 					   M_REQUIRE(isOfSizeAsked32(PAGE_OFFSET, page_offset), ERR_BAD_PARAMETER, "Page offset = %" PRIu16 " not on 12 bits", page_offset);
 					   M_REQUIRE_NON_NULL(paddr);
-					   fprintf(stderr,"******* init phy ****** page_begin = %"PRIX32" \n", page_begin);
 					   paddr->phy_page_num = (page_begin >> PAGE_OFFSET);
 					   paddr->page_offset = page_offset & mask32(PAGE_OFFSET);
 					   
