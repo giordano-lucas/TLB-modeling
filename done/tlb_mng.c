@@ -138,4 +138,5 @@ int tlb_search( const void * mem_space,
 						tlb[head]  = tlb_entr;
 						replacement_policy->move_back(&(replacement_policy->ll), replacement_policy->ll.front);
 					}
+					return ERR_NONE;
 				}
