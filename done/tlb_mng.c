@@ -1,4 +1,3 @@
-#pragma once
 
 /**
  * @file tlb_mng.h
@@ -10,15 +9,18 @@
 
 #include "tlb.h"
 #include "addr.h"
+#include "addr_mng.h"
+#include "tlb_mng.h"
+#include "page_walk.h"
 #include "list.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "error.h"
+#ifndef SIZE_MAX
+#define SIZE_MAX (~(size_t)0)
+#endif
 
-
-typedef struct {
-	list_t ll;
-	node_t* (*push_back)(list_t* this, const list_content_t* value);
-	void (*move_back)(list_t* this, node_t* node);
-}
-replacement_policy_t;
 //=========================================================================
 /**
  * @brief Clean a TLB (invalidate, reset...).
@@ -27,7 +29,11 @@ replacement_policy_t;
  * @param tlb pointer to the TLB
  * @return error code
  */
-int tlb_flush(tlb_entry_t * tlb);
+int tlb_flush(tlb_entry_t * tlb){
+	M_REQUIRE((TLB_LINES > SIZE_MAX/sizeof(tlb_entry_t)) == 0, ERR_IO, "Couldnt memset : overflow, %c", " ");
+	memset(tlb , 0, sizeof(tlb_entry_t)*TLB_LINES);
+	return ERR_NONE;
+}
 
 //=========================================================================
 /**
@@ -44,7 +50,24 @@ int tlb_flush(tlb_entry_t * tlb);
 int tlb_hit(const virt_addr_t * vaddr,
             phy_addr_t * paddr,
             const tlb_entry_t * tlb,
-            replacement_policy_t * replacement_policy);
+            replacement_policy_t * replacement_policy){
+				if(vaddr == NULL || paddr == NULL || tlb == NULL || replacement_policy == NULL){
+					return 0;
+				}
+				uint64_t tag = virt_addr_t_to_virtual_page_number(vaddr);
+				node_t* n = (replacement_policy->ll).back;
+				
+				while(n != NULL){
+					list_content_t value = n->value;
+					if(tlb[value].tag == tag){ //we got a hit
+						init_phy_addr(paddr, tlb[value].phy_page_num, vaddr->page_offset);
+						return 1;
+					}
+					n = n->previous;
+				}
+				return 0;
+				
+			}
 
 //=========================================================================
 /**
@@ -58,7 +81,15 @@ int tlb_hit(const virt_addr_t * vaddr,
  */
 int tlb_insert( uint32_t line_index,
                 const tlb_entry_t * tlb_entry,
-                tlb_entry_t * tlb);
+                tlb_entry_t * tlb){
+					M_REQUIRE_NON_NULL(tlb_entry);
+					M_REQUIRE_NON_NULL(tlb);
+					
+					
+					//set the line at index given to the new entry
+					tlb[line_index] = *tlb_entry;
+					return ERR_NONE;
+				}
 
 //=========================================================================
 /**
@@ -70,7 +101,15 @@ int tlb_insert( uint32_t line_index,
  */
 int tlb_entry_init( const virt_addr_t * vaddr,
                     const phy_addr_t * paddr,
-                    tlb_entry_t * tlb_entry);
+                    tlb_entry_t * tlb_entry){
+						M_REQUIRE_NON_NULL(vaddr);
+						M_REQUIRE_NON_NULL(paddr);
+						M_REQUIRE_NON_NULL(tlb_entry);
+						tlb_entry->tag = virt_addr_t_to_virtual_page_number(vaddr);
+						tlb_entry->phy_page_num = paddr->phy_page_num;
+						tlb_entry->v = 1;
+						return ERR_NONE;
+					}
 
 //=========================================================================
 /**
@@ -88,4 +127,20 @@ int tlb_search( const void * mem_space,
                 phy_addr_t * paddr,
                 tlb_entry_t * tlb,
                 replacement_policy_t * replacement_policy,
-                int* hit_or_miss);
+                int* hit_or_miss){
+					M_REQUIRE_NON_NULL(mem_space);
+					M_REQUIRE_NON_NULL(vaddr);
+					M_REQUIRE_NON_NULL(paddr);
+					M_REQUIRE_NON_NULL(tlb);
+					M_REQUIRE_NON_NULL(replacement_policy);
+					*hit_or_miss = tlb_hit(vaddr, paddr, tlb, replacement_policy);
+					if(*hit_or_miss == 0){ //replace stuff
+						page_walk(mem_space, vaddr, paddr); //modifies paddr to be the good value
+						list_content_t head = replacement_policy->ll.front->value;
+						tlb_entry_t tlb_entr;
+						tlb_entry_init(vaddr,paddr, &tlb_entr);
+						tlb[head]  = tlb_entr;
+						replacement_policy->move_back(&(replacement_policy->ll), replacement_policy->ll.front);
+					}
+					return ERR_NONE;
+				}

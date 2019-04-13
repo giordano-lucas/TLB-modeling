@@ -2,7 +2,7 @@
 ## partial Makefile provided to students
 ##
 
-CFLAGS = -std=c11 -Wall -Wpedantic -g
+CFLAGS = -std=c11 -Wall -Wpedantic -g -ffunction-sections
 
 # a bit more checks if you'd like to (uncomment
 # CFLAGS += -Wextra -Wfloat-equal -Wshadow                         \
@@ -23,8 +23,11 @@ test-addr :: test-addr.c test-addr.h tests.h util.h addr.h addr_mng.o error.o
 
 test-memory:: test-memory.c commands.o page_walk.o memory.o error.o addr_mng.o 
 test-commands: test-commands.c commands.o addr_mng.o error.o 
-test-tlb_simple:: test-tlb_simple.c error.h util.h addr_mng.h commands.h memory.h list.h tlb.h tlb_mng.h
+test-tlb_simple:: test-tlb_simple.c error.o util.h addr_mng.o addr.h commands.o mem_access.h memory.o list.o tlb.h tlb_mng.o page_walk.o
 
+
+tlb_mng.o: tlb_mng.c tlb.h addr.h addr_mng.o tlb_mng.h list.o page_walk.o error.o
+list.o:: list.c list.h error.o
 memory.o :: memory.c memory.h page_walk.o util.h addr_mng.o error.o addr.h
 page_walk.o :: page_walk.c addr.h error.h addr_mng.o 
 error.o :: error.c error.h

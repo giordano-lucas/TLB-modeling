@@ -1,22 +1,3 @@
-Skip to content
- 
-Search or jump to…
-
-Pull requests
-Issues
-Marketplace
-Explore
- 
-@giordano3102lucas 
-1
-0 0 projprogsys-epfl/pps19-projet-mathilde Private
- Code  Issues 0  Pull requests 0  Projects 0  Wiki  Insights
-pps19-projet-mathilde/done/memory.c
-@boesingerl boesingerl Should work for first submit
-f665975 5 days ago
-@boesingerl @giordano3102lucas
-271 lines (235 sloc)  9.86 KB
-    
 /**
  * @memory.c
  * @brief memory management functions (dump, init from file, etc.)
@@ -141,7 +122,15 @@ int vmem_page_dump_with_options(const void *mem_space, const virt_addr_t* from,
     mem_dump_with_options(mem_space, end_line, end, show_addr, line_size, sep);
     return ERR_NONE;
 }
-
+/**
+ * @brief : reads the content of filename and stores it in the "memory" parameter. Stores the number of bytes of the memory in mem_capacity_in_bytes
+ * 
+ * @param : filename : name of the file where we can read the memory. Must be non null
+ * @param : memory : pointer to the output memory : must be non null (and *memory must be non null)
+ * @param : nb of bytes of the memory : must be non null
+ * 
+ * 
+ */
 int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capacity_in_bytes){
 	M_REQUIRE_NON_NULL(filename);
 	M_REQUIRE_NON_NULL(memory);
@@ -157,32 +146,44 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 	// revient au debut du fichier (pour le lire par la suite)
 	rewind(file);
 	fprintf(stderr, "%zu", *mem_capacity_in_bytes);
+	
 	//allocate memory
 	*memory = calloc(*mem_capacity_in_bytes, sizeof(byte_t));
+	// test succes of allocation 
 	M_REQUIRE_NON_NULL(*memory);
 	
 	size_t nb_read = fread(*memory, sizeof(byte_t), *mem_capacity_in_bytes, file);
+	// check the number of bytes written
 	M_REQUIRE(nb_read == *mem_capacity_in_bytes, ERR_IO, "Error reading file %c", ' ');
 	
 	return ERR_NONE;
 	}
+/**
+ * @brief : helper function that stores the content of filename (that must be a page) in memory (with max size memorySize) at starting address addr.
+ * 
+ * @param : memory : memory where the content of filename must be written. Must be non null (*memory must also be non null)
+ * @param : memorySize : size of memory
+ * @param : addr : starting address (physical) of the memory from which the content of filename must be written
+ * @param : filename : name of the file where the data can be found. Must be non null
+ * 
+ */
 int page_file_read(void** memory,size_t memorySize, const uint64_t addr, const char* filename){
 		M_REQUIRE_NON_NULL(memory);
 		M_REQUIRE_NON_NULL(*memory);
 		M_REQUIRE_NON_NULL(filename);
 		// test that we can add an entire page at the given address 
 		M_REQUIRE((addr + PAGE_SIZE) <= memorySize, ERR_MEM, "Cannot add a page of 4kB at the address : %"PRIx64" for memory size : %zu", addr,memorySize);
-		//fprintf(stderr, "filename : %s", filename);
 		FILE* file = fopen(filename, "rb");
+		// test the opening of file
 		M_REQUIRE_NON_NULL(file);
-		
+
 		byte_t* memoryFromAddr = (byte_t*)*memory; 
 		memoryFromAddr += addr;
+
 		M_REQUIRE_NON_NULL(memoryFromAddr);
-		//fprintf(stderr, "Old mem : %p, new mem : %p \n", *memory, memoryFromAddr);
+		//read the content of filename
 		size_t nb_read = fread(memoryFromAddr, sizeof(byte_t), PAGE_SIZE,file);
 		M_REQUIRE(nb_read == PAGE_SIZE, ERR_IO, "Error reading file : %c", ' ');
-		//fprintf(stderr, "\n size read : %zu", nb_read);
 		return ERR_NONE;
 	}
 	
@@ -284,5 +285,3 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	}
 	return ERR_NONE;
 }
-
-
