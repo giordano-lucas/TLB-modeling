@@ -102,9 +102,13 @@ int tlb_insert( uint32_t line_index,
 int tlb_entry_init( const virt_addr_t * vaddr,
                     const phy_addr_t * paddr,
                     tlb_entry_t * tlb_entry){
+						M_REQUIRE_NON_NULL(vaddr);
+						M_REQUIRE_NON_NULL(paddr);
+						M_REQUIRE_NON_NULL(tlb_entry);
 						tlb_entry->tag = virt_addr_t_to_virtual_page_number(vaddr);
 						tlb_entry->phy_page_num = paddr->phy_page_num;
 						tlb_entry->v = 1;
+						return ERR_NONE;
 					}
 
 //=========================================================================
