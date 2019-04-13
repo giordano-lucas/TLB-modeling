@@ -36,10 +36,9 @@ void init_list(list_t* this){
  * @brief : helper function that frees a node
  **/
 void freeNode(node_t* n){
-	free(n->next);
-	n->next = NULL;
-	free(n->previous);
-	n->previous = NULL;
+	if (n != NULL){
+		free(n);
+		}
 	}
 //=============================================================
 /**
@@ -47,14 +46,19 @@ void freeNode(node_t* n){
  * @param this list to clear
  */
 void clear_list(list_t* this){
+	// case empty list
+	if (this == NULL || is_empty_list(this)) return;
+	
 	node_t* current = (this->front);
+	this->front = NULL;
 	node_t* next = NULL;
 	while (current!= NULL){
 		next = current->next;
 		freeNode(current);
 		current = next;
+		
 		}
-	free(this->back);
+	//free(this->back);
 	this->back = NULL;
 	}
 //===========================================================
@@ -91,7 +95,14 @@ node_t* push_back(list_t* this, const list_content_t* value){
 	//error case
 	if (newNode == NULL) return NULL;
 	//update list
-	(this->back)->next = newNode;
+	if (is_empty_list(this)){
+		// if the list is empty then the front becomes the new node
+		(this->front) = newNode;
+		}
+	else {
+		// if the list is non empty then we update the pointer of the old last element of the list
+		(this->back)->next = newNode;
+		}
 	this->back = newNode;
 	return newNode;
 }
@@ -113,7 +124,14 @@ node_t* push_front(list_t* this, const list_content_t* value){
 	//error case
 	if (newNode == NULL) return NULL;
 	//update list
-	(this->front)->previous = newNode;
+	if (is_empty_list(this)){
+		// if the list is empty then the back becomes the new node
+		(this->back) = newNode;
+		}
+	else {
+		// if the list is non empty then we update the pointer of the old first element of the list
+		(this->front)->previous = newNode;
+		}
 	this->front = newNode;
 	return newNode;
 	}
@@ -173,14 +191,25 @@ void pop_front(list_t* this){
  */
 void move_back(list_t* this, node_t* n){
 	// if empty or size == 1 nothing to be moved
-	if(is_empty_list(this) || (this->front == this->back)) return;
+	if(n == NULL || is_empty_list(this) || (this->front == this->back)) return;
+	// if n is already at the end 
+	if (n == this->back) return;
 	
 	// ====== case list.size > 1 ======
 	
 	// remove from list 
 	node_t* previous = n->previous;
 	node_t* next = n->next;
-	previous->next = next;
+	if (previous == NULL){
+		//case if n is the first element 
+		this->front = next;
+		}
+	else {
+		//case n has a previous element
+		previous->next = next;
+		}
+	if (next == NULL){
+		}
 	next->previous = previous;
 	// move to end
 	node_t* endNode = this->back;
