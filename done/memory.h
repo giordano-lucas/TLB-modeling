@@ -66,7 +66,6 @@ int page_file_read( void** memory,size_t memorySize, const uint64_t addr, const 
  * @return error code, *p_memory shall be NULL in case of error
  *
  */
-#define maxFileSize 100
 
 int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes);
 
