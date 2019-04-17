@@ -133,14 +133,14 @@ int program_shrink(program_t* program){
 	M_REQUIRE_NON_NULL(program);
 	if(program->nb_lines > 0){
 	while(program->allocated > program->nb_lines){
-		M_REQUIRE((program_resize(program, program->nb_lines) == ERR_NONE), ERR_MEM, "Could not resize %c", " ");
+		M_REQUIRE((program_resize(program, program->nb_lines) == ERR_NONE), ERR_MEM, "Could not resize %c", '\0');
 		}
 	}
 	else if(program->nb_lines < 0){
 		return ERR_BAD_PARAMETER;
 	}
 	else{
-		M_REQUIRE(program_resize(program, startCommandsAllocated) == ERR_NONE, ERR_MEM, "Could not resize %c", " ");
+		M_REQUIRE(program_resize(program, startCommandsAllocated) == ERR_NONE, ERR_MEM, "Could not resize %c", '\0');
 	}
 	return ERR_NONE;
 	}	
@@ -188,7 +188,7 @@ int program_add_command(program_t* program, const command_t* command){
 	 M_REQUIRE((command->vaddr.page_offset % command->data_size == 0), ERR_ADDR, "Page Offset size = %" PRIu16 " must be a multiple of data size", command->vaddr.page_offset);
 	
 	while(program->nb_lines >= program->allocated){
-		M_REQUIRE(program_resize(program, (program->allocated)*2) == ERR_NONE, ERR_MEM, "Could not resize %c", " ");
+		M_REQUIRE(program_resize(program, (program->allocated)*2) == ERR_NONE, ERR_MEM, "Could not resize %c", ' ');
 	}
 	
 	// à vérifier si on doit copier les pointeurs ou pas
@@ -214,8 +214,9 @@ int program_add_command(program_t* program, const command_t* command){
  * @param command : must be non null, command where the command read should be written
  * @return ERR_NONE or another ERR in case of an error
  **/
-int readCommand(FILE* input, command_t* command){
+int readCommand(FILE* input, command_t* command, int* validCommand){
 	M_REQUIRE_NON_NULL(input);
+	M_REQUIRE_NON_NULL(validCommand);
 	// prepare for reading R or W
 	char buffer[MAX_SIZE_BUFFER];
 	
@@ -223,7 +224,7 @@ int readCommand(FILE* input, command_t* command){
 	size_t sizeRead;
 	readUntilNextWhiteSpace(input,buffer, &sizeRead);
 	M_REQUIRE(sizeRead == 1, ERR_IO, "First character of a line must be 1 (and then followed by a space(' '))%c", ' ');
-	
+	*validCommand = 1; //command is supposed valid
     
 	switch (buffer[0]) {
         case 'R':
@@ -232,8 +233,11 @@ int readCommand(FILE* input, command_t* command){
         case 'W':
 			handleWrite(command, input);
 			break;
+		case -1: //end of file character
+			*validCommand = 0; //if we are at the end of file : dont add a command
+			break;
         default:
-			M_REQUIRE(0,ERR_IO, "First character of a line should be R or W and not %c",buffer[0] ); 
+			M_REQUIRE(0,ERR_IO, "First character of a line should be R or W and not %zu", (size_t)buffer[0] ); 
             break;
     }
     return ERR_NONE;
@@ -433,16 +437,15 @@ int program_read(const char* filename, program_t* program){
 	
 	program_init(program);
 	
-	
 	while (!feof(file) && !ferror(file) ){
 		// create new command that will be filled by readCommand
 		virt_addr_t v;
 		init_virt_addr(&v,0,0,0,0,0);
 		command_t newC = {0,0,0,0,v}; 
+		int validCommand = 0;
+		readCommand(file, &newC, &validCommand);
 		
-		readCommand(file, &newC);
-		
-		
+		if(validCommand)
 		program_add_command(program, &newC);
 		}
 	return ERR_NONE;

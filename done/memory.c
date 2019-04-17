@@ -145,7 +145,7 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 	*mem_capacity_in_bytes = (size_t) ftell(file);
 	// revient au debut du fichier (pour le lire par la suite)
 	rewind(file);
-	fprintf(stderr, "%zu", *mem_capacity_in_bytes);
+	
 	
 	//allocate memory
 	*memory = calloc(*mem_capacity_in_bytes, sizeof(byte_t));
@@ -231,11 +231,11 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	char pgd_location[maxFileSize];  //SECONDE LINE : PGD
 	fgets(pgd_location, maxFileSize, f);
 	strtok(pgd_location, "\n"); //removes newline char at the end
-	fprintf(stderr, "pgd_location : %s", pgd_location);
+	
 	page_file_read(memory, *mem_capacity_in_bytes, 0, pgd_location);
 	size_t nb_tables; //THIRD LINE : NUMBER OF PDM+PUD+PTE
 	fscanf(f, "%zu", &nb_tables);
-	//fprintf(stderr,"tables : %zu", nb_tables);
+	
 	for(size_t i =0; i < nb_tables ; i++){
 		uint32_t location;
 		fscanf(f, "%" PRIX32, &location);
@@ -243,10 +243,9 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 		char pageLocation[maxFileSize];  
 		fgets(pageLocation, maxFileSize, f);
 		strtok(pageLocation, "\n"); //removes newline char at the end
-		//fprintf(stderr, "\n\npagelocation stripped :%s", pageLocation);
+		
 		//USE PAGE FILE READ FOR EVERY OF THOSE TABLES
-		//fprintf(stderr,"\naddr : 0x%x", location);
-		fprintf(stderr, "\nplacing page : %s at address : 0x%lx", pageLocation, location );
+		
 		page_file_read(memory, *mem_capacity_in_bytes,location, pageLocation );
 	}
 	
@@ -272,16 +271,16 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 		init_virt_addr64(&virt, virtaddr);
 		phy_addr_t phy;
 		
-		fprintf(stderr, "\nvirt addr : : %"PRIX64 "\n", virtaddr);
+		
 		print_virtual_address(stderr,&virt);
 		page_walk(*memory, &virt, &phy);
 		uint64_t physical = (phy.phy_page_num << PAGE_OFFSET )| phy.page_offset;
 		print_physical_address(stderr, &phy);
-		fprintf(stderr, "\nphysical : %" PRIX64 "\n", physical);
 		
-		fprintf(stderr,"Location in memory of page :%sendoffile\n", string);
+		
+		
 		page_file_read(memory, *mem_capacity_in_bytes, physical, &string[0]);
-		//fprintf(stderr, "this page read");
+		
 	}
 	return ERR_NONE;
 }

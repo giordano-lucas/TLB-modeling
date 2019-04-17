@@ -55,12 +55,14 @@ int tlb_hit(const virt_addr_t * vaddr,
 					return 0;
 				}
 				uint64_t tag = virt_addr_t_to_virtual_page_number(vaddr);
-				node_t* n = (replacement_policy->ll).back;
-				
+				node_t* n = (replacement_policy->ll)->back;
 				while(n != NULL){
 					list_content_t value = n->value;
-					if(tlb[value].tag == tag){ //we got a hit
-						init_phy_addr(paddr, tlb[value].phy_page_num, vaddr->page_offset);
+					M_REQUIRE(value < TLB_LINES, ERR_BAD_PARAMETER, "Index to set has to be inferior to TLBLINES, %c" ,"");
+					
+					if(tlb[value].tag == tag && tlb[value].v == 1){ //we got a hit
+						init_phy_addr(paddr, tlb[value].phy_page_num << PAGE_OFFSET, vaddr->page_offset);
+						replacement_policy->move_back((replacement_policy->ll), n);
 						return 1;
 					}
 					n = n->previous;
@@ -84,7 +86,7 @@ int tlb_insert( uint32_t line_index,
                 tlb_entry_t * tlb){
 					M_REQUIRE_NON_NULL(tlb_entry);
 					M_REQUIRE_NON_NULL(tlb);
-					
+					M_REQUIRE(line_index < TLB_LINES, ERR_BAD_PARAMETER, "Index to set has to be inferior to TLBLINES, %c" ,"");
 					
 					//set the line at index given to the new entry
 					tlb[line_index] = *tlb_entry;
@@ -133,14 +135,16 @@ int tlb_search( const void * mem_space,
 					M_REQUIRE_NON_NULL(paddr);
 					M_REQUIRE_NON_NULL(tlb);
 					M_REQUIRE_NON_NULL(replacement_policy);
+					M_REQUIRE_NON_NULL((replacement_policy->ll)->front);
 					*hit_or_miss = tlb_hit(vaddr, paddr, tlb, replacement_policy);
 					if(*hit_or_miss == 0){ //replace stuff
 						page_walk(mem_space, vaddr, paddr); //modifies paddr to be the good value
-						list_content_t head = replacement_policy->ll.front->value;
+						list_content_t head = ((replacement_policy->ll)->front)->value;
+						M_REQUIRE(0 <= head && head < TLB_LINES, ERR_BAD_PARAMETER, "Head should be in TLB , actual value : %zu" , head);
 						tlb_entry_t tlb_entr;
 						tlb_entry_init(vaddr,paddr, &tlb_entr);
 						tlb[head]  = tlb_entr;
-						replacement_policy->move_back(&(replacement_policy->ll), replacement_policy->ll.front);
+						replacement_policy->move_back(replacement_policy->ll, (replacement_policy->ll)->front);
 					}
 					return ERR_NONE;
 				}

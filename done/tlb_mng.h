@@ -14,7 +14,7 @@
 
 
 typedef struct {
-	list_t ll;
+	list_t* ll;
 	node_t* (*push_back)(list_t* this, const list_content_t* value);
 	void (*move_back)(list_t* this, node_t* node);
 }
