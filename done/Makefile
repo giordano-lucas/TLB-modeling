@@ -19,7 +19,7 @@ CPPFLAGS += -DDEBUG
 LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
 
 all:: test-commands
-test-addr :: test-addr.c test-addr.h tests.h util.h addr.h addr_mng.o error.o
+test-addr :: test-addr.c tests.h util.h addr.h addr_mng.o error.o
 
 test-memory:: test-memory.c commands.o page_walk.o memory.o error.o addr_mng.o 
 test-commands: test-commands.c commands.o addr_mng.o error.o 
