@@ -180,7 +180,7 @@ int page_file_read(void** memory,size_t memorySize, const uint64_t addr, const c
 		byte_t* memoryFromAddr = (byte_t*)*memory; //pointer arithmetic to get right address
 		memoryFromAddr += addr;
 
-		M_REQUIRE_NON_NULL(memoryFromAddr); //checks that the cast to a byte didnt ruin the pointer
+		M_REQUIRE_NON_NULL(memoryFromAddr); //checks that the cast to a byte* didnt ruin the pointer
 		//read the content of filename
 		size_t nb_read = fread(memoryFromAddr, sizeof(byte_t), PAGE_SIZE,file); //check number of bytes read
 		M_REQUIRE(nb_read == PAGE_SIZE, ERR_IO, "Error reading file : %c", ' ');
