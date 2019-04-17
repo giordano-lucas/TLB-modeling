@@ -6,6 +6,16 @@
 #include <stdio.h> // FILE
 
 /*
+ * Others constants 
+ */ 
+#define PAGE_OFFSET_START 0
+#define PTE_ENTRY_START 12
+#define PMD_ENTRY_START 21
+#define PUD_ENTRY_START 30
+#define PGD_ENTRY_START 39
+
+
+/*
  * Creates a 16 bits mask of size "size" (nb of 1's)
  */
 uint16_t mask16(size_t size){

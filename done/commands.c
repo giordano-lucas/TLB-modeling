@@ -11,41 +11,51 @@
 #include <ctype.h>
 #include <stdlib.h>
 
+// ================= PROTOTYPES ==================
 int handleRead(command_t* command, FILE* input);
 int handleWrite(command_t* command, FILE* input);
 int handleTypeSize(command_t* command, FILE* input);
 int readUntilNextWhiteSpace(FILE* input, char buffer[], size_t* s);
 int program_resize(program_t* prog, size_t newSize);
+// ===============================================
 
-#define startCommandsAllocated 10
+// starting number of allocated commands 
+#define START_COMMANDS_ALLOCATED 10
 /**
  * @brief "Constructor" for program_t: initialize a program.
- * @param program (modified) the program to be initialized.
+ * @param program (modified) the program to be initialized
  * @return ERR_NONE of ok, appropriate error code otherwise.
  * 
+ * Requirements :
+ * 
+ * @parm program : must be non null
  * 
  */
 int program_init(program_t* program){
 	M_REQUIRE_NON_NULL(program);
+	
 	program->nb_lines = 0;
-	program->allocated = 10;
+	program->allocated = START_COMMANDS_ALLOCATED;
 	virt_addr_t v;
 	init_virt_addr(&v,0,0,0,0,0);
+	// initilize command to 0
 	command_t command0 = {0,0,0,0,v}; 
-	program->listing = calloc(startCommandsAllocated, sizeof(command_t));
-	M_EXIT_IF_NULL(program->listing, startCommandsAllocated*sizeof(command_t));
-	M_REQUIRE_NON_NULL(program->listing);
+	// dynamic allocation
+	program->listing = calloc(START_COMMANDS_ALLOCATED, sizeof(command_t));
+	
+	M_REQUIRE_NON_NULL(program->listing); // error case
+	M_EXIT_IF_NULL(program->listing, START_COMMANDS_ALLOCATED*sizeof(command_t)); // error case
 	
 	for (int i = 0 ; i < program->allocated ; ++i){
+		// set all 10 commands to the empty command command0
 		(program->listing)[i] = command0;
-		
 	}	
 	return ERR_NONE;
 }
 /**
  * @brief Prints a word as a 32bit word to the output stream
  * Requirements :
- * @param output : non null
+ * @param output : must be non null
  */
 int print_word_t_as_word(FILE* output, const word_t word){
 	M_REQUIRE_NON_NULL(output);
@@ -56,7 +66,7 @@ int print_word_t_as_word(FILE* output, const word_t word){
 /**
  * @brief Prints a word as a 8bit word to the output stream
  * Requirements :
- * @param output : non null
+ * @param output : must be non null
  * @return error code bad param or err_none
  */
 int print_word_t_as_byte(FILE* output, const word_t word){
@@ -68,7 +78,7 @@ int print_word_t_as_byte(FILE* output, const word_t word){
 /**
  * @brief Prints a 64bit uint to the output stream
  * Requirements :
- * @param output : non null
+ * @param output : must be non null
  * @return error code bad param or err_none
  */
 int print_uint_64(FILE* output, const uint64_t toPrint){
@@ -89,13 +99,16 @@ int print_uint_64(FILE* output, const uint64_t toPrint){
 int program_print(FILE* output, const program_t* program){
 	M_REQUIRE_NON_NULL(program);
 	M_REQUIRE_NON_NULL(output);
+	
 	for(int i = 0; i< program->nb_lines; i++){
 		command_t com = program->listing[i];
+		
+		// validation of com
 		M_REQUIRE(com.order == READ || com.order == WRITE, ERR_BAD_PARAMETER, "ORDER is neither read nor write%c", ' ');
 		M_REQUIRE(com.type == INSTRUCTION || com.type == DATA, ERR_BAD_PARAMETER, "TYPE is neither Instruction nor Data%c", ' ');
 		M_REQUIRE(com.data_size == 1 || com.data_size == 4, ERR_BAD_PARAMETER, "DATA_SIZE is neither 1 nor 4%c", ' ');
 		
-		
+		// processing
 		char ord = (com.order == READ) ? 'R' : 'W'; //checks if read or write
 		char type = (com.type == INSTRUCTION) ? 'I' : 'D'; //checks if instruction or data
 		char size = (com.data_size == 1) ? 'B' : 'W';  //checks if size of byte or word
@@ -132,26 +145,38 @@ int program_print(FILE* output, const program_t* program){
 int program_shrink(program_t* program){
 	M_REQUIRE_NON_NULL(program);
 	if(program->nb_lines > 0){
-	while(program->allocated > program->nb_lines){
-		M_REQUIRE((program_resize(program, program->nb_lines) == ERR_NONE), ERR_MEM, "Could not resize %c", '\0');
-		}
+		while(program->allocated > program->nb_lines){
+			// resize to nb_lines
+			M_REQUIRE((program_resize(program, program->nb_lines) == ERR_NONE), ERR_MEM, "Could not resize %c", '\0');
+			}
 	}
 	else if(program->nb_lines < 0){
+		// error case, nb_lines should not be negative
 		return ERR_BAD_PARAMETER;
 	}
 	else{
-		M_REQUIRE(program_resize(program, startCommandsAllocated) == ERR_NONE, ERR_MEM, "Could not resize %c", '\0');
+		// if nb_lines == 0 reset the lines to 10
+		M_REQUIRE(program_resize(program, START_COMMANDS_ALLOCATED) == ERR_NONE, ERR_MEM, "Could not resize %c", '\0');
 	}
 	return ERR_NONE;
 	}	
 	
-	
-		int program_resize(program_t* prog, size_t newSize){
+	/**
+	 * Helper function to resize a program to the newSize given
+	 * 
+	 * Requirements 
+	 * 
+	 * @param prog : program to be resized, must initialized and must be non null
+	 * @return an error code in case of an error
+	 * 
+	 */
+	int program_resize(program_t* prog, size_t newSize){
 		M_REQUIRE_NON_NULL(prog);
 		M_REQUIRE_NON_NULL(prog->listing);
 		program_t copy = *prog;
 		copy.allocated = newSize;
 		
+		// check overflow multiplication and test reallocation
 		if(copy.allocated > (SIZE_MAX/sizeof(command_t)) || (copy.listing = realloc(copy.listing, copy.allocated*sizeof(command_t))) == NULL ){
 				return ERR_MEM;
 		}
@@ -180,18 +205,17 @@ int program_add_command(program_t* program, const command_t* command){
 	M_REQUIRE_NON_NULL(program);
 	M_REQUIRE_NON_NULL(command);
 	
-	//taille incorecte
+	//incorect size
 	 M_REQUIRE((command->type == INSTRUCTION)? (command->data_size == sizeof(word_t)): (command->data_size == 1 || command->data_size == sizeof(word_t)), ERR_SIZE, "Data size = %zu, type = %d, must be of size %lu for Instructions and of size 1 or %lu for Data", command->data_size, command->type, sizeof(word_t), sizeof(word_t));
-	//on cherche à écrire une instruction
+	// Cannot write with an instruction
 	 M_REQUIRE(!(command->type == INSTRUCTION && command->order == WRITE), ERR_BAD_PARAMETER, "Cannot write with an instruction%c", ' ');
-	//addr virtuelle invalide
+	//invalid  virtual addr 
 	 M_REQUIRE((command->vaddr.page_offset % command->data_size == 0), ERR_ADDR, "Page Offset size = %" PRIu16 " must be a multiple of data size", command->vaddr.page_offset);
 	
 	while(program->nb_lines >= program->allocated){
 		M_REQUIRE(program_resize(program, (program->allocated)*2) == ERR_NONE, ERR_MEM, "Could not resize %c", ' ');
 	}
 	
-	// à vérifier si on doit copier les pointeurs ou pas
 	program->listing[program->nb_lines] = *command;
 	program->nb_lines++;
 	
@@ -352,10 +376,12 @@ int handleTypeSize(command_t* command, FILE* input){
 	 * Fills the order of the command, calls handleTypeSize to fill the type and size of the command
 	 * Fills in the virtual address of the command using readUntilNextWhiteSpace and strtoull to parse the hex string into a uint64
 	 * 
+	 * /!\ assumes that the order is already set
+	 * 
 	 * @return : Either an error code or ERR_NONE
 	 */
 int handleRead(command_t* command, FILE* input){
-	//Suppose qu'il a déjà lu le R / W
+	
 	command->order = READ;
 	handleTypeSize(command, input);  //Fills the type and size
 	size_t s;
