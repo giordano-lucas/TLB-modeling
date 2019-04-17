@@ -191,7 +191,7 @@ void pop_front(list_t* this){
  */
 void move_back(list_t* this, node_t* n){
 	// if empty or size == 1 nothing to be moved
-	if(n == NULL || is_empty_list(this) || (this->front == this->back)) return;
+	if(n == NULL || is_empty_list(this)  || (this->front == this->back)) return;
 	// if n is already at the end 
 	if (n == this->back) return;
 	
@@ -200,11 +200,11 @@ void move_back(list_t* this, node_t* n){
 	// remove from list 
 	node_t* previous = n->previous;
 	node_t* next = n->next;
+
 	if (next == NULL){
 		// case n is the last element it does not have to be moved
 		return;
 		}
-		
 	if (previous == NULL){
 		//case if n is the first element 
 		this->front = next;
@@ -233,13 +233,15 @@ void move_back(list_t* this, node_t* n){
  */
 int print_list(FILE* stream, const list_t* this){
 	int nbChar = 0;
-	nbChar += fprintf(stream,"List = (%c", ' ');
+	nbChar += fprintf(stream,"(");
 	node_t* current = this->front;
 	while(current != NULL) {
-		nbChar += fprintf(stream," %"PRIX32",", current->value);
+		nbChar += print_node(stream, current->value);
+		if(current->next != NULL)
+		nbChar += fprintf(stream, ", ");
 		current = current->next;
 		}
-	nbChar += fprintf(stream, ")%c\n", ' ');
+	nbChar += fprintf(stream, ")");
 	return nbChar;
 	}
 
@@ -251,12 +253,15 @@ int print_list(FILE* stream, const list_t* this){
  */
 int print_reverse_list(FILE* stream, const list_t* this){
 	int nbChar = 0;
-	nbChar += fprintf(stream,"List reversed = (%c", ' ');
+	nbChar += fprintf(stream,"(");
 	node_t* current = this->back;
 	while(current != NULL) {
-		nbChar += fprintf(stream," %"PRIu32",", current->value);
+
+		nbChar += print_node(stream, current->value);
+		if(current->previous != NULL)
+		nbChar += fprintf(stream, ", ");
 		current = current->previous;
 		}
-	nbChar += fprintf(stream, ")%c\n", ' ');
+	nbChar += fprintf(stream, ")");
 	return nbChar;
 }
