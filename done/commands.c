@@ -221,7 +221,8 @@ int readCommand(FILE* input, command_t* command){
 	
 	// read the first character of a command (should be 'R' on 'W')
 	size_t sizeRead;
-	readUntilNextWhiteSpace(input,buffer, &sizeRead);
+	int err;
+	if ( (err = readUntilNextWhiteSpace(input,buffer, &sizeRead))!= ERR_NONE) return err;
 	M_REQUIRE(sizeRead == 1, ERR_IO, "First character of a line must be 1 (and then followed by a space(' '))%c", ' ');
 	
     
@@ -442,7 +443,7 @@ int program_read(const char* filename, program_t* program){
 		
 		readCommand(file, &newC);
 		
-		
+		puts("===== LINES ====");
 		program_add_command(program, &newC);
 		}
 	return ERR_NONE;
