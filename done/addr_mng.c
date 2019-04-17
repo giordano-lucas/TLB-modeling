@@ -78,7 +78,6 @@ int init_virt_addr(virt_addr_t * vaddr,
 					   M_REQUIRE(isOfSizeAsked32(PMD_ENTRY, pmd_entry), ERR_BAD_PARAMETER, "Pmd entry size = %" PRIu16 " superior to 9", pmd_entry);
 					   M_REQUIRE(isOfSizeAsked32(PTE_ENTRY, pte_entry), ERR_BAD_PARAMETER, "Pte entry size = %" PRIu16 " superior to 9", pte_entry);
 					   M_REQUIRE(isOfSizeAsked32(PAGE_OFFSET, page_offset), ERR_BAD_PARAMETER, "Page offset size = %" PRIu16 " superior to 12", page_offset);
-					   
 					   M_REQUIRE_NON_NULL(vaddr);
 					   
 					   vaddr->pgd_entry = pgd_entry;
