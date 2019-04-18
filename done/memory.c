@@ -155,7 +155,7 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 	size_t nb_read = fread(*memory, sizeof(byte_t), *mem_capacity_in_bytes, file);
 	// check the number of bytes written
 	M_REQUIRE(nb_read == *mem_capacity_in_bytes, ERR_IO, "Error reading file %c", ' ');
-	
+	fclose(file);
 	return ERR_NONE;
 	}
 /**
@@ -184,6 +184,7 @@ int page_file_read(void** memory,size_t memorySize, const uint64_t addr, const c
 		//read the content of filename
 		size_t nb_read = fread(memoryFromAddr, sizeof(byte_t), PAGE_SIZE,file); //check number of bytes read
 		M_REQUIRE(nb_read == PAGE_SIZE, ERR_IO, "Error reading file : %c", ' ');
+		fclose(file);
 		return ERR_NONE;
 	}
 	
@@ -295,5 +296,6 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 		page_file_read(memory, *mem_capacity_in_bytes, physical, &string[0]); //writes the raw page file at the translated physical address
 		
 	}
+	fclose(f);
 	return ERR_NONE;
 }

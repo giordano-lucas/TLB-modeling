@@ -475,6 +475,7 @@ int program_read(const char* filename, program_t* program){
 		if(validCommand)
 			program_add_command(program, &newC);
 		}
+	fclose(file);
 	return ERR_NONE;
 	}
 /**
