@@ -31,11 +31,30 @@
 /**
  * L1 ITLB, L1 DTLB, and L2 TLB are all direct-mapped.
  */
-/* TODO WEEK 09:
- * Définir ici les types :
- *    - l1_itlb_entry_t;
- *    - l1_dtlb_entry_t;
- *    - l2_tlb_entry_t;
- *    - et tlb_t;
- * (et supprimer ces huit lignes de commentaire).
+/*
+ * Bitfield for a level 1 tlb entry
  */
+typedef struct {
+	uint32_t tag : 32;
+	uint32_t phy_page_num : PHY_PAGE_NUM;
+	uint8_t v : 1;
+	} l1_itlb_entry_t;
+
+//alias for l1_itlb_entry_t
+typedef l1_itlb_entry_t l1_dtlb_entry_t;
+
+
+/*
+ * Bitfield for a level 2 tlb entry
+ */
+typedef struct {
+	uint32_t tag : 30;
+	uint32_t phy_page_num : PHY_PAGE_NUM;
+	uint8_t v : 1;
+	} l2_tlb_entry_t;
+/*
+ * Bitfield that identifies the category of a tlb
+ */
+typedef enum {
+	L1_ITLB, L1_DTLB, L2_TLB
+	} tlb_t;
