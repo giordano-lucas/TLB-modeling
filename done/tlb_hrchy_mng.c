@@ -2,13 +2,14 @@
 #include "tlb_hrchy_mng.h"
 #include "addr.h"
 #include "addr_mng.h"
-#include "tlb_mng.h"
+#include "addr_mng.c"
 #include "page_walk.h"
-#include "list.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "error.h"
+#include <stdbool.h>
+
 
 //=========================================================================
 /**
@@ -22,20 +23,22 @@
 
 int tlb_flush(void *tlb, tlb_t tlb_type){
 	M_REQUIRE_NON_NULL(tlb);
-	
+	M_REQUIRE(L1_ITLB <= tlb_type && tlb_type <= L2_TLB, ERR_BAD_PARAMETER, "%d is not a valid tlb_type \n", tlb_type);
+
 	
 	switch (tlb_type) {
         case L1_ITLB:
+			// besoin de cast le pointeur ?
             M_REQUIRE((L1_ITLB_LINES > SIZE_MAX/sizeof(l1_itlb_entry_t)) == 0, ERR_IO, "Couldnt memset : overflow, %c", " ");
-			memset((l1_itlb_entry_t)tlb_type , 0, sizeof(l1_itlb_entry_t)*L1_ITLB_LINES);
+			memset(tlb , 0, sizeof(l1_itlb_entry_t)*L1_ITLB_LINES);
             break;
         case L1_DTLB:
             M_REQUIRE((L1_DTLB_LINES > SIZE_MAX/sizeof(l1_dtlb_entry_t)) == 0, ERR_IO, "Couldnt memset : overflow, %c", " ");
-			memset((l1_dtlb_entry_t)tlb_type , 0, sizeof(l1_dtlb_entry_t)*L1_DTLB_LINES);
+			memset(tlb, 0, sizeof(l1_dtlb_entry_t)*L1_DTLB_LINES);
             break;
         case L2_TLB:
             M_REQUIRE((L2_TLB_LINES > SIZE_MAX/sizeof(l2_tlb_entry_t)) == 0, ERR_IO, "Couldnt memset : overflow, %c", " ");
-			memset((l2_tlb_entry_t)tlb_type , 0, sizeof(l2_tlb_entry_t)*L2_TLB_LINES);
+			memset(tlb, 0, sizeof(l2_tlb_entry_t)*L2_TLB_LINES);
             break;
         default:
 			//error
@@ -60,10 +63,58 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
  * @return hit (1) or miss (0)
  */
 
-int tlb_hit( const virt_addr_t * vaddr,
-             phy_addr_t * paddr,
-             const void  * tlb,
-             tlb_t tlb_type);
+int tlb_hit( const virt_addr_t * vaddr, phy_addr_t * paddr, const void  * tlb, tlb_t tlb_type){
+	if(vaddr == NULL || paddr == NULL || tlb == NULL)return 0;
+	if (! (L1_ITLB <= tlb_type && tlb_type <= L2_TLB)) return 0;
+	
+	uint64_t addr = virt_addr_t_to_virtual_page_number(vaddr);
+	uint32_t tag = 0;
+	uint8_t line = 0;
+	
+	bool hit = false;
+	uint32_t phy_page_num = 0;
+	
+	switch (tlb_type) {
+        case L1_ITLB:
+			tag = addr >> L1_ITLB_LINES_BITS;
+			line = addr % L1_ITLB_LINES;
+			l1_itlb_entry_t entry = *(((l1_itlb_entry_t*) tlb + line));
+			if (entry.tag == tag && entry.v == 1) {
+				hit = true;
+				phy_page_num = entry.phy_page_num;
+				}
+            break;
+        case L1_DTLB:
+			tag = addr >> L1_DTLB_LINES_BITS;
+			line = addr % L1_DTLB_LINES;
+			l1_dtlb_entry_t entry2 = *(((l1_dtlb_entry_t*) tlb + line));
+			if (entry2.tag == tag && entry2.v == 1) {
+				hit = true;
+				phy_page_num = entry2.phy_page_num;
+				}
+            break;
+        case L2_TLB:
+			tag = addr >> L2_TLB_LINES_BITS;
+			line = addr % L2_TLB_LINES;
+			l2_tlb_entry_t entry3 = *(((l2_tlb_entry_t*) tlb + line));
+			if (entry3.tag == tag && entry3.v == 1) {
+				hit = true;
+				phy_page_num = entry3.phy_page_num;
+				}
+            break;
+        default:
+			//error
+			//????
+            break;
+    }
+	
+	if(hit){ //we got a hit
+		init_phy_addr(paddr, phy_page_num << PAGE_OFFSET, vaddr->page_offset);
+		return 1;
+		}
+	
+	return 0;
+	}
 
 //=========================================================================
 /**
@@ -76,10 +127,34 @@ int tlb_hit( const virt_addr_t * vaddr,
  * @return  error code
  */
 
-int tlb_insert( uint32_t line_index,
-                const void * tlb_entry,
-                void * tlb,
-                tlb_t tlb_type);
+int tlb_insert( uint32_t line_index, const void * tlb_entry, void * tlb,tlb_t tlb_type){
+	M_REQUIRE_NON_NULL(tlb);
+	M_REQUIRE(L1_ITLB <= tlb_type && tlb_type <= L2_TLB, ERR_BAD_PARAMETER, "%d is not a valid tlb_type \n", tlb_type);
+	
+	switch (tlb_type) {
+        case L1_ITLB:
+			M_REQUIRE(line_index < L1_ITLB_LINES, ERR_BAD_PARAMETER, "%"PRIx32" should be smaller than L1_ITLB_LINES", line_index);
+			// tlb is now an array of l1_itlb_entry_t
+			// (l1_itlb_entry_t*)tlb + line_index -> is the pointer to the line to be changed -> with * in front, it is now the real line pointed
+			*((l1_itlb_entry_t*)tlb + line_index) = *((l1_itlb_entry_t*)tlb_entry);
+            break;
+        case L1_DTLB:
+            M_REQUIRE(line_index < L1_DTLB_LINES, ERR_BAD_PARAMETER, "%"PRIx32" should be smaller than L1_ITLB_LINES", line_index);
+			// tlb is now an array of l1_dtlb_entry_t
+			*((l1_dtlb_entry_t*)tlb + line_index) = *((l1_dtlb_entry_t*)tlb_entry);
+        case L2_TLB:
+			M_REQUIRE(line_index < L2_TLB_LINES, ERR_BAD_PARAMETER, "%"PRIx32" should be smaller than L1_ITLB_LINES", line_index);
+			// tlb is now an array of l2_tlb_entry_t
+			*((l2_tlb_entry_t*)tlb + line_index) = *((l2_tlb_entry_t*)tlb_entry);
+        default:
+			//error
+			//????
+            break;
+    }
+	
+	
+	return ERR_NONE;
+	}
 
 //=========================================================================
 /**
@@ -95,6 +170,8 @@ int tlb_entry_init( const virt_addr_t * vaddr, const phy_addr_t * paddr, void * 
 	M_REQUIRE_NON_NULL(vaddr);
 	M_REQUIRE_NON_NULL(paddr);
 	M_REQUIRE_NON_NULL(tlb_entry);
+	M_REQUIRE(L1_ITLB <= tlb_type && tlb_type <= L2_TLB, ERR_BAD_PARAMETER, "%d is not a valid tlb_type \n", tlb_type);
+
 	
 	if (tlb_type == L1_ITLB){
 		l1_itlb_entry_t* l1i = (l1_itlb_entry_t*)tlb_entry;
@@ -133,11 +210,7 @@ int tlb_entry_init( const virt_addr_t * vaddr, const phy_addr_t * paddr, void * 
  * @return error code
  */
 
-int tlb_search( const void * mem_space,
-                const virt_addr_t * vaddr,
-                phy_addr_t * paddr,
-                mem_access_t access,
-                l1_itlb_entry_t * l1_itlb,
-                l1_dtlb_entry_t * l1_dtlb,
-                l2_tlb_entry_t * l2_tlb,
-                int* hit_or_miss);
+int tlb_search( const void * mem_space,const virt_addr_t * vaddr, phy_addr_t * paddr, mem_access_t access, l1_itlb_entry_t * l1_itlb, 
+				l1_dtlb_entry_t * l1_dtlb, l2_tlb_entry_t * l2_tlb, int* hit_or_miss){
+					return ERR_NONE;
+					}

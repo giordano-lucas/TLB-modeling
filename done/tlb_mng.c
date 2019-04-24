@@ -47,10 +47,7 @@ int tlb_flush(tlb_entry_t * tlb){
  * @param tlb pointer to the beginning of the tlb
  * @return hit (1) or miss (0)
  */
-int tlb_hit(const virt_addr_t * vaddr,
-            phy_addr_t * paddr,
-            const tlb_entry_t * tlb,
-            replacement_policy_t * replacement_policy){
+int tlb_hit(const virt_addr_t * vaddr, phy_addr_t * paddr,const tlb_entry_t * tlb,replacement_policy_t * replacement_policy){
 				if(vaddr == NULL || paddr == NULL || tlb == NULL || replacement_policy == NULL){
 					return 0;
 				}
