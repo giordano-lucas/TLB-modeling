@@ -212,5 +212,32 @@ int tlb_entry_init( const virt_addr_t * vaddr, const phy_addr_t * paddr, void * 
 
 int tlb_search( const void * mem_space,const virt_addr_t * vaddr, phy_addr_t * paddr, mem_access_t access, l1_itlb_entry_t * l1_itlb, 
 				l1_dtlb_entry_t * l1_dtlb, l2_tlb_entry_t * l2_tlb, int* hit_or_miss){
+					M_REQUIRE_NON_NULL(mem_space);
+					M_REQUIRE_NON_NULL(vaddr);
+					M_REQUIRE_NON_NULL(paddr);
+					M_REQUIRE_NON_NULL(l1_itlb);
+					M_REQUIRE_NON_NULL(l1_dtlb);
+					M_REQUIRE_NON_NULL(l2_tlb);
+					M_REQUIRE_NON_NULL(hit_or_miss);
+					if(access == INSTRUCTION){*hit_or_miss = tlb_hit(vaddr, paddr, l1_itlb, L1_ITLB);}
+					else{*hit_or_miss = tlb_hit(vaddr, paddr, l1_dtlb, L1_DTLB);}
+					if(!*hit_or_miss){
+							*hit_or_miss = tlb_hit(vaddr, paddr, l2_tlb, L2_TLB);
+							page_walk(mem_space, vaddr, paddr);
+							line = addr % L2_2TLB_LINES;
+							l2_tlb_entry_t entry;
+							tlb_entry_init(vaddr, paddr, &entry, L2_TLB);
+							l2_tlb[line] = entry;
+							if(access == INSTRUCTION){//init itlb entry
+								
+								//invalidate dtlb entry
+							}
+							else{//init dtlb entry
+								
+								//invalidate itlb entry
+							}
+					}
+					
+					
 					return ERR_NONE;
 					}
