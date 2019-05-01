@@ -121,27 +121,24 @@ int tlb_entry_init( const virt_addr_t * vaddr,
  * @param hit_or_miss (modified) hit (1) or miss (0)
  * @return error code
  */
-int tlb_search( const void * mem_space,
-                const virt_addr_t * vaddr,
-                phy_addr_t * paddr,
-                tlb_entry_t * tlb,
-                replacement_policy_t * replacement_policy,
-                int* hit_or_miss){
-					M_REQUIRE_NON_NULL(mem_space);
-					M_REQUIRE_NON_NULL(vaddr);
-					M_REQUIRE_NON_NULL(paddr);
-					M_REQUIRE_NON_NULL(tlb);
-					M_REQUIRE_NON_NULL(replacement_policy);
-					M_REQUIRE_NON_NULL((replacement_policy->ll)->front);
-					*hit_or_miss = tlb_hit(vaddr, paddr, tlb, replacement_policy);
-					if(*hit_or_miss == 0){ //replace stuff
-						page_walk(mem_space, vaddr, paddr); //modifies paddr to be the good value
-						list_content_t head = ((replacement_policy->ll)->front)->value;
-						M_REQUIRE(0 <= head && head < TLB_LINES, ERR_BAD_PARAMETER, "Head should be in TLB , actual value : %zu" , head);
-						tlb_entry_t tlb_entr;
-						tlb_entry_init(vaddr,paddr, &tlb_entr);
-						tlb[head]  = tlb_entr;
-						replacement_policy->move_back(replacement_policy->ll, (replacement_policy->ll)->front);
-					}
-					return ERR_NONE;
-				}
+int tlb_search( const void * mem_space, const virt_addr_t * vaddr,  phy_addr_t * paddr, tlb_entry_t * tlb,replacement_policy_t * replacement_policy, int* hit_or_miss){
+		M_REQUIRE_NON_NULL(mem_space);
+		M_REQUIRE_NON_NULL(vaddr);
+		M_REQUIRE_NON_NULL(paddr);
+		M_REQUIRE_NON_NULL(tlb);
+		M_REQUIRE_NON_NULL(replacement_policy);
+		M_REQUIRE_NON_NULL((replacement_policy->ll)->front);
+		
+		
+		*hit_or_miss = tlb_hit(vaddr, paddr, tlb, replacement_policy);
+		if(*hit_or_miss == 0){ //replace stuff
+			page_walk(mem_space, vaddr, paddr); //modifies paddr to be the good value
+			list_content_t head = ((replacement_policy->ll)->front)->value;
+			M_REQUIRE(0 <= head && head < TLB_LINES, ERR_BAD_PARAMETER, "Head should be in TLB , actual value : %zu" , head);
+			tlb_entry_t tlb_entr;
+			tlb_entry_init(vaddr,paddr, &tlb_entr);
+			tlb[head]  = tlb_entr;
+			replacement_policy->move_back(replacement_policy->ll, (replacement_policy->ll)->front);
+		}
+		return ERR_NONE;
+		}
