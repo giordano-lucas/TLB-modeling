@@ -24,9 +24,8 @@ test-addr :: test-addr.c tests.h util.h addr.h addr_mng.o error.o
 test-memory:: test-memory.c commands.o page_walk.o memory.o error.o addr_mng.o 
 test-commands: test-commands.c commands.o addr_mng.o error.o 
 test-tlb_simple:: test-tlb_simple.c error.o util.h addr_mng.o addr.h commands.o mem_access.h memory.o list.o tlb.h tlb_mng.o page_walk.o
-test-tlb_hrchy:: test-tlb_hrchy.c error.o util.h addr.h commands.o mem_access.h memory.o tlb_hrchy.h tlb_hrchy_mng.o page_walk.o
-
-tlb_hrchy_mng.o: tlb_hrchy_mng.c tlb_hrchy_mng.h tlb_hrchy.h addr.h mem_access.h addr_mng.o error.o page_walk.o
+test-tlb_hrchy:: test-tlb_hrchy.c error.o util.h addr.h commands.o mem_access.h memory.o tlb_hrchy.h tlb_hrchy_mng.o page_walk.o addr_mng.o
+tlb_hrchy_mng.o:: tlb_hrchy_mng.c tlb_hrchy_mng.h tlb_hrchy.h addr.h mem_access.h addr_mng.o error.o page_walk.o
 tlb_mng.o:: tlb_mng.c tlb.h addr.h addr_mng.o tlb_mng.h list.o page_walk.o error.o
 list.o:: list.c list.h error.o
 memory.o :: memory.c memory.h page_walk.o util.h addr_mng.o error.o addr.h
