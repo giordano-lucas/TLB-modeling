@@ -20,7 +20,7 @@
  * @return 0 if the list is (well-formed and) not empty
  */
 int is_empty_list(const list_t* this){
-	return (this->front == NULL && this->back == NULL);
+	return ((this == NULL) || (this->front == NULL && this->back == NULL));
 	}
 
 /**
@@ -28,6 +28,7 @@ int is_empty_list(const list_t* this){
  * @param this list to initialized
  */
 void init_list(list_t* this){
+	if (this == NULL) return; // error case
 	this->front = NULL;
 	this->back = NULL;
 }
@@ -52,18 +53,17 @@ void clear_list(list_t* this){
 	node_t* current = (this->front);
 	this->front = NULL;
 	node_t* next = NULL;
-	while (current!= NULL){
+	while (current!= NULL){ // iterate on all nodes in the list
 		next = current->next;
 		freeNode(current);
 		current = next;
-		
 		}
 	//free(this->back);
 	this->back = NULL;
 	}
 //===========================================================
 /*
- * Create a newNode with value, previous and last as attributes and returns null in case of error
+ * Create a newNode with value, previous and last as attributes and returns null in case of an error
  */
 node_t* createNode(const list_content_t* value, node_t* previous, node_t*last){
 	//create node
@@ -92,18 +92,12 @@ node_t* push_back(list_t* this, const list_content_t* value){
 	// previous = this->back => make the last node points to the new node
 	// next = NULL; // newNode is the last node 
 	
-	//error case
-	if (newNode == NULL) return NULL;
+	if (newNode == NULL) return NULL; //error case
 	//update list
-	if (is_empty_list(this)){
-		// if the list is empty then the front becomes the new node
-		(this->front) = newNode;
-		}
-	else {
-		// if the list is non empty then we update the pointer of the old last element of the list
-		(this->back)->next = newNode;
-		}
-	this->back = newNode;
+	if (is_empty_list(this)) (this->front) = newNode; // if the list is empty then the front becomes the new node
+	else (this->back)->next = newNode; 	              // if the list is non empty then we update the pointer of the old last element of the list
+	
+	this->back = newNode; // push back
 	return newNode;
 }
 
@@ -121,18 +115,13 @@ node_t* push_front(list_t* this, const list_content_t* value){
 	// previous = NULL => newNode is the first node
 	// next = this->front => make the new node points to the first Node of the list
 	
-	//error case
-	if (newNode == NULL) return NULL;
+	
+	if (newNode == NULL) return NULL; //error case
 	//update list
-	if (is_empty_list(this)){
-		// if the list is empty then the back becomes the new node
-		(this->back) = newNode;
-		}
-	else {
-		// if the list is non empty then we update the pointer of the old first element of the list
-		(this->front)->previous = newNode;
-		}
-	this->front = newNode;
+	if (is_empty_list(this)) (this->back) = newNode; // if the list is empty then the back becomes the new node
+	else (this->front)->previous = newNode;          // if the list is non empty then we update the pointer of the old first element of the list
+	
+	this->front = newNode; // push front
 	return newNode;
 	}
 
@@ -142,13 +131,10 @@ node_t* push_front(list_t* this, const list_content_t* value){
  */
 void pop_back(list_t* this){
 	// if empty nothing to be removed
-	if(is_empty_list(this)) return;
+	if(this == NULL || is_empty_list(this)) return;
 	
 	// case list.size = 1
-	if (this->front == this->back){
-		// make list empty
-		clear_list(this);
-		}
+	if (this->front == this->back) clear_list(this); // make list empty
 	// case list.size > 1
 	else {
 		node_t* newEnd = (this->back)->previous;
@@ -166,13 +152,10 @@ void pop_back(list_t* this){
  */
 void pop_front(list_t* this){
 	// if empty nothing to be removed
-	if(is_empty_list(this)) return;
+	if(this == NULL || is_empty_list(this)) return;
 	
 	// case list.size = 1
-	if (this->front == this->back){
-		// make list empty
-		clear_list(this);
-		}
+	if (this->front == this->back) clear_list(this); // make list empty
 	// case list.size > 1
 	else {
 		node_t* newStart = (this->front)->next;
@@ -181,7 +164,6 @@ void pop_front(list_t* this){
 		//update list
 		this->front = newStart;
 		}
-	
 	}
 
 /**
@@ -201,24 +183,16 @@ void move_back(list_t* this, node_t* n){
 	node_t* previous = n->previous;
 	node_t* next = n->next;
 
-	if (next == NULL){
-		// case n is the last element it does not have to be moved
-		return;
-		}
-	if (previous == NULL){
-		//case if n is the first element 
-		this->front = next;
-		}
-	else {
-		//case n has a previous element
-		previous->next = next;
-		}
+
+	if (next == NULL) return; // case n is the last element it does not have to be moved
+	if (previous == NULL) this->front = next; //case n is the first element 
+	else previous->next = next; //case n has a previous element
 	
 	next->previous = previous;
 	// move to end
 	node_t* endNode = this->back;
 	endNode->next = n; // make old last node points to n
-	n->previous = endNode; // make n node points to old last
+	n->previous = endNode; // make node n points to old last node
 	n->next = NULL; // since n is now the last node it has no next element
 	//update list
 	this->back = n;
@@ -227,40 +201,41 @@ void move_back(list_t* this, node_t* n){
 
 /**
  * @brief print a list (on one single line, no newline)
- * @param stream where to print to
- * @param this the list to be printed
+ * @param stream where to print to, must be non null
+ * @param this the list to be printed, must be non null
  * @return number of printed characters
  */
 int print_list(FILE* stream, const list_t* this){
+	M_REQUIRE_NON_NULL(stream);
+	M_REQUIRE_NON_NULL(this);
+	
 	int nbChar = 0;
 	nbChar += fprintf(stream,"(");
-	node_t* current = this->front;
-	while(current != NULL) {
+	// uses the macro defined is list.h to iterate on all nodes 
+	for_all_nodes(current, this) { 
 		nbChar += print_node(stream, current->value);
-		if(current->next != NULL)
-		nbChar += fprintf(stream, ", ");
-		current = current->next;
-		}
+		if(current->next != NULL) nbChar += fprintf(stream, ", ");
+		 }
 	nbChar += fprintf(stream, ")");
 	return nbChar;
 	}
 
 /**
  * @brief print a list reversed way
- * @param stream where to print to
- * @param this the list to be printed
+ * @param stream where to print to, must be non null
+ * @param this the list to be printed, must be non null
  * @return number of printed characters
  */
 int print_reverse_list(FILE* stream, const list_t* this){
-	int nbChar = 0;
+	M_REQUIRE_NON_NULL(stream);
+	M_REQUIRE_NON_NULL(this);
+	
+	int nbChar = 0; // the number of printed characters
 	nbChar += fprintf(stream,"(");
-	node_t* current = this->back;
-	while(current != NULL) {
-
+	// uses the macro defined is list.h to iterate on all nodes 
+	for_all_nodes_reverse(current, this) { 
 		nbChar += print_node(stream, current->value);
-		if(current->previous != NULL)
-		nbChar += fprintf(stream, ", ");
-		current = current->previous;
+		if(current->previous != NULL) nbChar += fprintf(stream, ", ");
 		}
 	nbChar += fprintf(stream, ")");
 	return nbChar;

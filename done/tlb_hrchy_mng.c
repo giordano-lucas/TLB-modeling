@@ -183,10 +183,12 @@ int tlb_insert( uint32_t line_index, const void * tlb_entry, void * tlb,tlb_t tl
 //=========================================================================
 /**
  * @brief Initialize a TLB entry
- * @param vaddr pointer to virtual address, to extract tlb tag
- * @param paddr pointer to physical address, to extract physical page number
- * @param tlb_entry pointer to the entry to be initialized
- * @param tlb_type to distinguish between different TLBs
+ * 
+ * Requirements : 
+ * @param vaddr     : must be non null
+ * @param paddr     : must be non null
+ * @param tlb_entry : must be non null
+ * @param tlb_type  : must be a valid instance of tlb_t
  * @return  error code
  */
 
