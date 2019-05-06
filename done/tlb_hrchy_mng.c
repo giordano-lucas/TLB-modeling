@@ -25,7 +25,7 @@
  * it first test the overflow of sizeof(type)*NB_LINE
  */
 #define flush_generic(type, tlb, NB_LINES)                                                                       \
-	 M_REQUIRE((L1_ITLB_LINES > SIZE_MAX/sizeof(type)), ERR_SIZE, "Could not memset : overflow, %c", " ");    \
+	 M_REQUIRE((NB_LINES > SIZE_MAX/sizeof(type)), ERR_SIZE, "Could not memset : overflow, %c", " ");    \
 	 memset(tlb , 0, sizeof(type)*NB_LINES);                                                                     \
 //================================================================================================================
 /**

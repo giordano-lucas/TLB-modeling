@@ -1,23 +1,24 @@
-#pragma once
 
+
+#include "error.h"
+#include "cache_mng.h"
+//=========================================================================
+
+#define phy_to_int(phy) (uint32_t)(((phy)->phy_page_num << PAGE_OFFSET) || (phy)->page_offset)
 /**
- * @file cache_mng.h
- * @brief cache management functions
+ * @brief Cleans a cache with type type
  *
- * @author Mirjana Stojilovic
- * @date 2018-19
+ * @param type     : type of cache (l1_icache_entry_t, l1_dcache_entry_t, l2_cache_entry_t)
+ * @param cache    : the (generic) pointer to the cache
+ * @param NB_LINES : the number of lines of the cache
+ * @param WAYS     : the number of ways of the cache
+ * 
+ * it first test the overflow of sizeof(type)*NB_LINE*WAYS
  */
-
-#include "mem_access.h"
-#include "addr.h"
-#include "cache.h"
-
-enum cache_replacement_policy { LRU };
-typedef enum cache_replacement_policy cache_replace_t;
-
-#define HIT_WAY_MISS   ((uint8_t)  -1)
-#define HIT_INDEX_MISS ((uint16_t) -1)
-
+#define flush_generic(type, cache, NB_LINES, WAYS)                                                                   \
+	 M_REQUIRE(((NB_LINES) > SIZE_MAX/(WAYS)), ERR_SIZE, "Could not memset : overflow, %c", " ");                    \
+	 M_REQUIRE((((NB_LINES)*(WAYS)) > SIZE_MAX/sizeof(type)), ERR_SIZE, "Could not memset : overflow, %c", " ");     \
+	 memset(cache , 0, sizeof(type)*(NB_LINES)*(WAYS));                                                              \
 //=========================================================================
 /**
  * @brief Clean a cache (invalidate, reset...).
@@ -27,7 +28,21 @@ typedef enum cache_replacement_policy cache_replace_t;
  * @param cache_type an enum to distinguish between different caches
  * @return error code
  */
-int cache_flush(void *cache, cache_t cache_type);
+int cache_flush(void *cache, cache_t cache_type){
+	M_REQUIRE_NON_NULL(cache);
+	// test if the tlb_type is a valid instance of tlb_t
+	M_REQUIRE(L1_ICACHE <= cache_type && cache_type <= L2_CACHE, ERR_BAD_PARAMETER, "%d is not a valid cache_type \n", cache_type);
+
+	// for each cache type call the generic macro defined before
+	switch (cache_type) {
+        case L1_ICACHE : flush_generic(l1_icache_entry_t, cache, L1_ICACHE_LINES, L1_ICACHE_WAYS); break;
+        case L1_DCACHE : flush_generic(l1_dcache_entry_t, cache, L1_DCACHE_LINES, L1_DCACHE_WAYS); break;
+        case L2_CACHE  : flush_generic(l2_cache_entry_t , cache, L2_CACHE_LINES , L2_CACHE_WAYS) ; break;
+        default        : return ERR_BAD_PARAMETER; break;
+    }
+	
+	return ERR_NONE;
+	}
 
 //=========================================================================
 /**
@@ -81,7 +96,29 @@ int cache_insert(uint16_t cache_line_index,
  * @param cache_type to distinguish between different caches
  * @return  error code
  */
-int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cache_entry,cache_t cache_type);
+int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cache_entry,cache_t cache_type){
+	M_REQUIRE_NON_NULL(mem_space);
+	M_REQUIRE_NON_NULL(paddr);
+	M_REQUIRE_NON_NULL(cache_entry);
+	M_REQUIRE((L1_ICACHE<=cache_type)&&(cache_type <= L2_CACHE),ERR_BAD_PARAMETER,"Wrong instance of cache_type %c",' ');
+	
+	uint32_t phy_addr = phy_to_int(paddr);
+	switch (cache_type) {
+		case L1_ICACHE : {
+			l1_icache_entry_t* entry = cache_entry;
+			entry->v = 1;
+			entry->age = 0;
+			entry->tag = phy_addr >> L1_ICACHE_TAG_REMAINING_BITS;
+			entry->line = mem_space[phy_addr/(sizeof(byte_t)*L1_ICACHE_LINES)];
+			}
+		break;
+		case L1_DCACHE :
+		break;
+		case L2_CACHE  :
+		break;
+		}
+	return ERR_NONE;
+	}
 
 //=========================================================================
 /**
