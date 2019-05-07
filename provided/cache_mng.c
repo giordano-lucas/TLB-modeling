@@ -25,12 +25,21 @@
             fputs(")\n", OUTFILE); \
     } while(0)
 
+#define PRINT_INVALID_CACHE_LINE(OUTFILE, TYPE, WAYS, LINE_INDEX, WAY, WORDS_PER_LINE) \
+    do { \
+            fprintf(OUTFILE, "V: %1" PRIx8 ", AGE: -, TAG: -----, values: ( ---------- ---------- ---------- ---------- )\n", \
+                        cache_valid(TYPE, WAYS, LINE_INDEX, WAY)); \
+    } while(0)
+
 #define DUMP_CACHE_TYPE(OUTFILE, TYPE, WAYS, LINES, WORDS_PER_LINE)  \
     do { \
         for(uint16_t index = 0; index < LINES; index++) { \
             foreach_way(way, WAYS) { \
                 fprintf(output, "%02" PRIx8 "/%04" PRIx16 ": ", way, index); \
-                PRINT_CACHE_LINE(OUTFILE, const TYPE, WAYS, index, way, WORDS_PER_LINE); \
+                if(cache_valid(TYPE, WAYS, index, way)) \
+                    PRINT_CACHE_LINE(OUTFILE, const TYPE, WAYS, index, way, WORDS_PER_LINE); \
+                else \
+                    PRINT_INVALID_CACHE_LINE(OUTFILE, const TYPE, WAYS, index, way, WORDS_PER_LINE);\
             } \
         } \
     } while(0)
