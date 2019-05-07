@@ -1,0 +1,53 @@
+- id: group_ceb306
+- Makefile: 3           # max 3, 
+- addr.h: # NE PAS REMPLIR CETTE LIGNE
+    trois typedef: 3    # max 3, 
+    virt_addr_t: 5      # max 5, 
+    phy_addr_t: 5       # max 5, 
+- addr_mng.c: # NE PAS REMPLIR CETTE LIGNE
+  - init_virt_addr(): 6                        # max 6, 
+  - init_virt_addr64(): 6                      # max 6, 
+  - init_phy_addr(): 3                         # max 4, missing sanity check -1
+  - virt_addr_t_to_uint64_t(): 5               # max 5, 
+  - virt_addr_t_to_virtual_page_number(): 5    # max 5, 
+  - print_virtual_address(): 3                 # max 3, 
+  - print_physical_address(): 3                # max 3, incorrect format specifier -0
+- commands.h: # NE PAS REMPLIR CETTE LIGNE
+    command_word_t: 2    # max 2, 
+    command_t: 7         # max 7, 
+    program_t: 5         # max 5, 
+- commands.c: # NE PAS REMPLIR CETTE LIGNE
+  - program_print(): 6          # max 7, missing sanity check -1
+  - program_init(): 5           # max 6, wrong unit of representing allocated -1
+  - program_add_command(): 10    # max 16, 4/8 validity checks done -4, adaptation required -1, missing overflow check -1
+  - program_shrink(): 5         # max 6, adaptation required -1
+  - program_read(): # NE PAS REMPLIR CETTE LIGNE
+      modularisation: 4               # max 5, with a bit of refactoring, you can modularize further your solution, typically the parsing of virtual address -1
+      get_next_nonspace_char(): 3     # max 3, 
+      do_D(): 8                       # max 8, 
+      do_R(): 6                       # max 8, missing test and error propagation of init_virt_addr64 -1, missing error conversion check of strtoull -1
+      do_W(): 8                       # max 8, missing test and error propagation of init_virt_addr64 -0, missing error conversion check of strtoull -0
+      command_line_read(): 8          # max 10, missing test and propagation of error from handleRead and handleWrite -2
+      core: 5                         # max 11, missing test and propagation of error code of program_init -1, missing test and propagation of error code of readCommand -1, missing test and propagation of error code of program_add_command -1, missing check of ferror before closing the file -1, missing program shrinking -2
+  - program_free(): 4                 # max 6, incomplete finalisation -2
+- memory.c: # NE PAS REMPLIR CETTE LIGNE
+  - mem_init_from_dumpfile(): # NE PAS REMPLIR CETTE LIGNE
+      vérifications d\'usage: 2    # max 2, 
+      ouverture fichier: 5         # max 5, 
+      allocation mémoire: 3        # max 5, missing file closing in case of error -1, missing check of mem_capacity_in_bytes being a multiple of a page size -1
+      lecture fichier: 3           # max 5, missing finalisation of memory in case of error -2
+      fermeture fichier: 2         # max 2, 
+  - mem_init_from_description(): # NE PAS REMPLIR CETTE LIGNE
+      vérifications d\'usage: 0      # max 2, missing sanity checks -2
+      ouverture fichier: 4           # max 5, missing NULL check -1
+      allocation mémoire: 4          # max 5, missing NULL check -1
+      lecture PGD page filename: 3   # max 5, missing error handling -1, missing finalisation of memory in case of error -1
+      page_file_read(): 7            # max 8, missing file closing in case of error -1
+      lecture PUDs: 10                # max 15, missing test and propagation of error code of page_file_read -1, missing error handling of reading number of translation pages -1, missing error handling of reading location -1, missing finalisation of memory in case of error -1, missing error handling of reading pageLocation -1
+      lecture pages data: 10          # max 15, missing finalisation of memory in case of error -1, missing error handling of reading pageLocation -1,  missing test and propagation of error code of page_walk -1,  missing test and propagation of error code of page_file_read -1, missing test and propagation of error code of init_virt_addr64 -1
+      fermeture fichier: 1           # max 2, missing file closing in case of error -1
+- page_walk.c: # NE PAS REMPLIR CETTE LIGNE
+    read_page_entry(): 2    # max 2, 
+    page_walk(): 10          # max 12, missing propagation of error code -2
+- style: 1        # max 2, min -2, 
+- bonus/malus: 0  # max 5, min -5, modularity of program_print +1, several auxiliary functions +1, testing that an unsigned is non-negative -1, hardcoded values instead of constants / macros -1
