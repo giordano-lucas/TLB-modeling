@@ -16,8 +16,8 @@
  * it first test the overflow of sizeof(type)*NB_LINE*WAYS
  */
 #define flush_generic(type, cache, NB_LINES, WAYS)                                                                   \
-	 M_REQUIRE(((NB_LINES) > SIZE_MAX/(WAYS)), ERR_SIZE, "Could not memset : overflow, %c", " ");                    \
-	 M_REQUIRE((((NB_LINES)*(WAYS)) > SIZE_MAX/sizeof(type)), ERR_SIZE, "Could not memset : overflow, %c", " ");     \
+	 M_REQUIRE(((NB_LINES) < SIZE_MAX/(WAYS)), ERR_SIZE, "Could not memset : overflow, %c", " ");                    \
+	 M_REQUIRE((((NB_LINES)*(WAYS)) < SIZE_MAX/sizeof(type)), ERR_SIZE, "Could not memset : overflow, %c", " ");     \
 	 memset(cache , 0, sizeof(type)*(NB_LINES)*(WAYS));                                                              \
 //=========================================================================
 /**
