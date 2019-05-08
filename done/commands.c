@@ -462,8 +462,8 @@ int program_read(const char* filename, program_t* program){
 	FILE* file= NULL;
 	file = fopen(filename, "r");
 	if (file == NULL) return ERR_IO;
-	
-	program_init(program);
+	int err = ERR_NONE;
+	if ((err = program_init(program))!= ERR_NONE) {fclose(file); return err;}//error propagation
 	
 	while (!feof(file) && !ferror(file) ){
 		// create new command that will be filled by readCommand
@@ -471,12 +471,14 @@ int program_read(const char* filename, program_t* program){
 		init_virt_addr(&v,0,0,0,0,0);
 		command_t newC = {0,0,0,0,v}; 
 		int validCommand = 0;
-		readCommand(file, &newC, &validCommand);
+		if ((err = readCommand(file, &newC, &validCommand))!= ERR_NONE) {fclose(file);return err;}//error propagation
 
 		if(validCommand)
-			program_add_command(program, &newC);
+			if ((err =program_add_command(program, &newC))!= ERR_NONE){fclose(file); return err;}//error propagation
 		}
+	if (ferror(file)) return ERR_IO;// check of ferror before closing the file since we may leave the loop because of ferror
 	fclose(file);
+	program_shrink(program);
 	return ERR_NONE;
 	}
 /**

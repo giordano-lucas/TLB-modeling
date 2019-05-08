@@ -16,8 +16,8 @@
  * it first test the overflow of sizeof(type)*NB_LINE*WAYS
  */
 #define flush_generic(type, cache, NB_LINES, WAYS)                                                                   \
-	 M_REQUIRE(((NB_LINES) > SIZE_MAX/(WAYS)), ERR_SIZE, "Could not memset : overflow, %c", " ");                    \
-	 M_REQUIRE((((NB_LINES)*(WAYS)) > SIZE_MAX/sizeof(type)), ERR_SIZE, "Could not memset : overflow, %c", " ");     \
+	 M_REQUIRE(((NB_LINES) < SIZE_MAX/(WAYS)), ERR_SIZE, "Could not memset : overflow, %c", " ");                    \
+	 M_REQUIRE((((NB_LINES)*(WAYS)) < SIZE_MAX/sizeof(type)), ERR_SIZE, "Could not memset : overflow, %c", " ");     \
 	 memset(cache , 0, sizeof(type)*(NB_LINES)*(WAYS));                                                              \
 //=========================================================================
 /**
@@ -61,13 +61,24 @@ int cache_flush(void *cache, cache_t cache_type){
  * @return  error code
  */
 
-int cache_hit (const void * mem_space,
-               void * cache,
-               phy_addr_t * paddr,
-               const uint32_t ** p_line,
-               uint8_t *hit_way,
-               uint16_t *hit_index,
-               cache_t cache_type);
+int cache_hit (const void * mem_space, void * cache, phy_addr_t * paddr, const uint32_t ** p_line, uint8_t *hit_way, uint16_t *hit_index, cache_t cache_type){
+	M_REQUIRE_NON_NULL(mem_space);
+	M_REQUIRE_NON_NULL(cache);
+	M_REQUIRE_NON_NULL(p_line);
+	M_REQUIRE_NON_NULL(hit_way);
+	M_REQUIRE_NON_NULL(hit_index);
+	
+	uint32_t phy_addr = phy_to_int(paddr);
+	uint8_t line_index = (phy_addr>>L1_ICACHE_WORDS_PER_LINE)%L1_ICACHE_LINE;
+	uint32_t tag = phy_addr >> L1_ICACHE_TAG_REMAINING_BITS;
+	foreach_way(way, L1_ICACHE_WAYS) {
+		if (!cache_valid(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) ){
+			// ??????
+			}
+		if (cache_tag(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) == tag){
+			*p_line = cache_line(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);
+		}
+	}
 
 #define init_cache_entry(TYPE, LINE, AGE,VALID)
 //=========================================================================
@@ -126,14 +137,15 @@ int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cac
 			entry->v = 1;
 			entry->age = 0;
 			entry->tag = phy_addr >> L1_ICACHE_TAG_REMAINING_BITS;
-			entry->line = mem_space[phy_addr/(sizeof(byte_t)*L1_ICACHE_LINES)];
+			memcpy (entry->line, mem_space + phy_addr/((sizeof(byte_t)*L1_ICACHE_LINES)),L1_ICACHE_WORDS_PER_LINE);
 			}
 		break;
 		case L1_DCACHE :
 		break;
 		case L2_CACHE  :
 		break;
-		}
+		default: return ERR_BAD_PARAMETER; break;
+	}
 	return ERR_NONE;
 	}
 

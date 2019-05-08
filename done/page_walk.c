@@ -42,6 +42,7 @@ int page_walk(const void* mem_space, const virt_addr_t* vaddr, phy_addr_t* paddr
 	M_REQUIRE_NON_NULL(mem_space);
 	M_REQUIRE_NON_NULL(vaddr);
 	M_REQUIRE_NON_NULL(paddr);
+	int err = ERR_NONE;
 	pte_t page_begin = START_PAGE_TABLE;
 	
 	//read pgd
@@ -53,7 +54,7 @@ int page_walk(const void* mem_space, const virt_addr_t* vaddr, phy_addr_t* paddr
 	//read pte
 	page_begin = read_page_entry(mem_space,page_begin, vaddr->pte_entry);
 	//intialize phy addr
-	init_phy_addr(paddr, page_begin, vaddr->page_offset);
+	if ((err =init_phy_addr(paddr, page_begin, vaddr->page_offset))!= ERR_NONE) return err;
 
 	return ERR_NONE;
 	}
