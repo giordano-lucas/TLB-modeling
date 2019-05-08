@@ -4,7 +4,7 @@
 #include "cache_mng.h"
 //=========================================================================
 
-#define phy_to_int(phy) (uint32_t)(((phy)->phy_page_num << PAGE_OFFSET) || (phy)->page_offset)
+#define phy_to_int(phy) (uint32_t)(((phy)->phy_page_num << PAGE_OFFSET) | (phy)->page_offset)
 /**
  * @brief Cleans a cache with type type
  *
@@ -69,6 +69,7 @@ int cache_hit (const void * mem_space,
                uint16_t *hit_index,
                cache_t cache_type);
 
+#define init_cache_entry(TYPE, LINE, AGE,VALID)
 //=========================================================================
 /**
  * @brief Insert an entry to a cache.
@@ -80,11 +81,27 @@ int cache_hit (const void * mem_space,
  * @param cache_type to distinguish between different caches
  * @return  error code
  */
+
 int cache_insert(uint16_t cache_line_index,
                  uint8_t cache_way,
                  const void * cache_line_in,
                  void * cache,
-                 cache_t cache_type);
+                 cache_t cache_type){
+	M_REQUIRE_NON_NULL(cache);
+	M_REQUIRE_NON_NULL(cache_line_in);
+	word_t line = *((word_t*)cache_line_in);
+	
+	switch (cache_type) {
+         case L1_ICACHE : 
+         cache_line(L1_ICACHE, L1_ICACHE_WAYS, cache_line_index, cache_way) = line;
+         
+         break;
+         case L1_DCACHE :
+         case L2_CACHE  : 
+         default        : return ERR_BAD_PARAMETER; break;
+    }
+					
+				 }
 
 //=========================================================================
 /**
