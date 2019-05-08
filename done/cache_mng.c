@@ -2,6 +2,7 @@
 
 #include "error.h"
 #include "cache_mng.h"
+#include "lru.h"
 //=========================================================================
 
 #define phy_to_int(phy) (uint32_t)(((phy)->phy_page_num << PAGE_OFFSET) | (phy)->page_offset)
@@ -71,15 +72,31 @@ int cache_hit (const void * mem_space, void * cache, phy_addr_t * paddr, const u
 	uint32_t phy_addr = phy_to_int(paddr);
 	uint8_t line_index = (phy_addr>>L1_ICACHE_WORDS_PER_LINE)%L1_ICACHE_LINE;
 	uint32_t tag = phy_addr >> L1_ICACHE_TAG_REMAINING_BITS;
+	// initialise return values
+	*hit_way = HIT_WAY_MISS;
+	*hit_index = HIT_INDEX_MISS;
+
+
 	foreach_way(way, L1_ICACHE_WAYS) {
 		if (!cache_valid(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) ){
-			// ??????
+			//found a place
+			//update ages
+			LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);
+			return ERR_NONE;
 			}
-		if (cache_tag(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) == tag){
+		else if (cache_tag(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) == tag){
+			//hit
 			*p_line = cache_line(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);
+			*hit_way = way;
+			*hit_index = line_index;
+			//update ages
+			LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);
+			return ERR_NONE;
 		}
 	}
-
+	//if we arrive here no entry has been found
+	return ERR_NONE;
+}
 //=========================================================================
 /**
  * @brief Insert an entry to a cache.
@@ -156,13 +173,29 @@ int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cac
  * @param replace replacement policy
  * @return  error code
  */
-int cache_read(const void * mem_space,
-               phy_addr_t * paddr,
-               mem_access_t access,
-               void * l1_cache,
-               void * l2_cache,
-               uint32_t * word,
-               cache_replace_t replace);
+int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
+               void * l1_cache, void * l2_cache, uint32_t * word, cache_replace_t replace){
+	M_REQUIRE_NON_NULL(mem_space);
+	M_REQUIRE_NON_NULL(paddr);
+	M_REQUIRE_NON_NULL(l1_cache);
+	M_REQUIRE_NON_NULL(l2_cache);
+	M_REQUIRE_NON_NULL(word);
+	M_REQUIRE(replace == LRU, ERR_BAD_PARAMETER, "replace is not a valid instance of cache_replace_t %c", ' ');
+	M_REQUIRE(access == INSTRUCTION || access == DATA, ERR_BAD_PARAMETER, "access is not a valid instance of mem_access_t %c", ' ');
+	
+	const uint32_t * p_line;
+	uint8_t hit_way;
+	uint16_t hit_index;
+	int err = (access == INSTRUCTION)? cache_hit(mem_space, l1_cache, paddr,&p_line,&hit_way,&hit_index, L1_ICACHE):
+									   cache_hit(mem_space, l1_cache, paddr,&p_line,&hit_way,&hit_index, L1_DCACHE);
+	if (err != ERR_NONE){return err;} //error handling
+	if  (hit_way != HIT_WAY_MISS){
+		//found it
+		//*word = cache_line(l1_icache_entry_t, L1_ICACHE_WAYS, hit_index, hit_way)[paddr->page_offset%L1_ICACHE_WORDS_PER_LINE];
+		}
+	return ERR_NONE;
+
+}
 
 //=========================================================================
 /**
@@ -178,13 +211,12 @@ int cache_read(const void * mem_space,
  * @param replace replacement policy
  * @return  error code
  */
-int cache_read_byte(const void * mem_space,
-                    phy_addr_t * p_paddr,
-                    mem_access_t access,
-                    void * l1_cache,
-                    void * l2_cache,
-                    uint8_t * p_byte,
-                    cache_replace_t replace);
+int cache_read_byte(const void * mem_space, phy_addr_t * p_paddr, mem_access_t access,
+					void * l1_cache,void * l2_cache,uint8_t * p_byte, cache_replace_t replace){
+	
+						
+	return ERR_NONE;
+}
 
 //=========================================================================
 /**
@@ -211,18 +243,15 @@ int cache_write(void * mem_space,
  * @brief Write to cache a byte of data. Endianess: LITTLE.
  *
  * @param mem_space pointer to the memory space
- * @param p_addr pointer to a physical address
- * @param access to distinguish between fetching instructions and reading/writing data
- * @param l1_icache pointer to the beginning of L1 ICACHE
- * @param l1_dcache pointer to the beginning of L1 DCACHE
+ * @param paddr pointer to a physical address
+ * @param l1_cache pointer to the beginning of L1 ICACHE
  * @param l2_cache pointer to the beginning of L2 CACHE
- * @param byte pointer to the byte to be returned
+ * @param p_byte pointer to the byte to be returned
  * @param replace replacement policy
- * @return  error code
+ * @return error code
  */
 int cache_write_byte(void * mem_space,
                      phy_addr_t * paddr,
-                     mem_access_t access,
                      void * l1_cache,
                      void * l2_cache,
                      uint8_t p_byte,
