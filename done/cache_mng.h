@@ -11,12 +11,21 @@
 #include "mem_access.h"
 #include "addr.h"
 #include "cache.h"
+#include <stdio.h> // for FILE
 
 enum cache_replacement_policy { LRU };
 typedef enum cache_replacement_policy cache_replace_t;
 
 #define HIT_WAY_MISS   ((uint8_t)  -1)
 #define HIT_INDEX_MISS ((uint16_t) -1)
+
+//=========================================================================
+/**
+ * @brief Useful macro to loop over ways
+ *
+ */
+#define foreach_way(var, ways) \
+  for (uint8_t var = 0; var < (ways); var++)
 
 //=========================================================================
 /**
@@ -33,8 +42,9 @@ int cache_flush(void *cache, cache_t cache_type);
 /**
  * @brief Check if a instruction/data is present in one of the caches.
  *
- * On hit, return success (1) and update the cache-line-size chunk of data passed as the pointer to the function.
- * On miss, return miss (0).
+ * On hit, update hit infos to corresponding index
+ *         and update the cache-line-size chunk of data passed as the pointer to the function.
+ * On miss, update hit infos to HIT_WAY_MISS or HIT_INDEX_MISS.
  *
  * @param mem_space starting address of the memory space
  * @param cache pointer to the beginning of the cache
@@ -43,7 +53,7 @@ int cache_flush(void *cache, cache_t cache_type);
  * @param hit_way (modified) cache way where hit was detected, HIT_WAY_MISS on miss
  * @param hit_index (modified) cache line index where hit was detected, HIT_INDEX_MISS on miss
  * @param cache_type to distinguish between different caches
- * @return  error code
+ * @return error code
  */
 
 int cache_hit (const void * mem_space,
@@ -63,7 +73,7 @@ int cache_hit (const void * mem_space,
  * @param cache_line_in pointer to the cache line to insert
  * @param cache pointer to the cache
  * @param cache_type to distinguish between different caches
- * @return  error code
+ * @return error code
  */
 int cache_insert(uint16_t cache_line_index,
                  uint8_t cache_way,
@@ -79,9 +89,12 @@ int cache_insert(uint16_t cache_line_index,
  * @param paddr pointer to physical address, to extract the tag
  * @param cache_entry pointer to the entry to be initialized
  * @param cache_type to distinguish between different caches
- * @return  error code
+ * @return error code
  */
-int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cache_entry,cache_t cache_type);
+int cache_entry_init(const void * mem_space,
+                     const phy_addr_t * paddr,
+                     void * cache_entry,
+                     cache_t cache_type);
 
 //=========================================================================
 /**
@@ -94,8 +107,8 @@ int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cac
  *      then the cache block is moved from the L2 cache to the L1 cache. If
  *      this causes a block to be evicted from L1, the evicted block is then
  *      placed into L2. This is the only way L2 gets populated. Here, L2
- *      behaves like a victim cache. If the block is not found in both L1 and
- *      L2, then it is fetched from main memory and placed just in L1 and not
+ *      behaves like a victim cache. If the block is not found neither in L1 nor
+ *      in L2, then it is fetched from main memory and placed just in L1 and not
  *      in L2.
  *
  * @param mem_space pointer to the memory space
@@ -105,7 +118,7 @@ int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cac
  * @param l2_cache pointer to the beginning of L2 CACHE
  * @param word pointer to the word of data that is returned by cache
  * @param replace replacement policy
- * @return  error code
+ * @return error code
  */
 int cache_read(const void * mem_space,
                phy_addr_t * paddr,
@@ -122,12 +135,11 @@ int cache_read(const void * mem_space,
  * @param mem_space pointer to the memory space
  * @param p_addr pointer to a physical address
  * @param access to distinguish between fetching instructions and reading/writing data
- * @param l1_icache pointer to the beginning of L1 ICACHE
- * @param l1_dcache pointer to the beginning of L1 DCACHE
+ * @param l1_cache pointer to the beginning of L1 CACHE
  * @param l2_cache pointer to the beginning of L2 CACHE
  * @param byte pointer to the byte to be returned
  * @param replace replacement policy
- * @return  error code
+ * @return error code
  */
 int cache_read_byte(const void * mem_space,
                     phy_addr_t * p_paddr,
@@ -144,7 +156,7 @@ int cache_read_byte(const void * mem_space,
  *
  * @param mem_space pointer to the memory space
  * @param paddr pointer to a physical address
- * @param l1_cache pointer to the beginning of L1 DCACHE
+ * @param l1_cache pointer to the beginning of L1 CACHE
  * @param l2_cache pointer to the beginning of L2 CACHE
  * @param word const pointer to the word of data that is to be written to the cache
  * @param replace replacement policy
@@ -162,19 +174,26 @@ int cache_write(void * mem_space,
  * @brief Write to cache a byte of data. Endianess: LITTLE.
  *
  * @param mem_space pointer to the memory space
- * @param p_addr pointer to a physical address
- * @param access to distinguish between fetching instructions and reading/writing data
- * @param l1_icache pointer to the beginning of L1 ICACHE
- * @param l1_dcache pointer to the beginning of L1 DCACHE
+ * @param paddr pointer to a physical address
+ * @param l1_cache pointer to the beginning of L1 ICACHE
  * @param l2_cache pointer to the beginning of L2 CACHE
- * @param byte pointer to the byte to be returned
+ * @param p_byte pointer to the byte to be returned
  * @param replace replacement policy
- * @return  error code
+ * @return error code
  */
 int cache_write_byte(void * mem_space,
                      phy_addr_t * paddr,
-                     mem_access_t access,
                      void * l1_cache,
                      void * l2_cache,
                      uint8_t p_byte,
                      cache_replace_t replace);
+
+//=========================================================================
+/**
+ * @brief Print the contents of a cache to a stream.
+ * @param output the stream to print to.
+ * @param cache pointer to the cache
+ * @param cache_type to distinguish between different caches
+ * @return error code
+ */
+int cache_dump(FILE* output, const void* cache, cache_t cache_type);

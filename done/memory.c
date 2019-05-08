@@ -25,6 +25,8 @@
 #include <assert.h>
 
 // ======================================================================
+int handle_exit_error(FILE* file, void** memory);
+// ======================================================================
 /**
  * @brief Tool function to print an address.
  *
@@ -145,16 +147,18 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 	*mem_capacity_in_bytes = (size_t) ftell(file);
 	// revient au debut du fichier (pour le lire par la suite)
 	rewind(file);
-	
+	M_REQUIRE(*mem_capacity_in_bytes % PAGE_SIZE == 0 || handle_exit_error(file, memory), ERR_BAD_PARAMETER, "mem_capacity_in_bytes is not a multiple of a page size %c",' ');
 	
 	//allocate memory
 	*memory = calloc(*mem_capacity_in_bytes, sizeof(byte_t));
 	// test succes of allocation 
-	M_REQUIRE_NON_NULL(*memory);
+	if (*memory == NULL){
+		fclose(file); return ERR_MEM;// memory error
+		}
 	
 	size_t nb_read = fread(*memory, sizeof(byte_t), *mem_capacity_in_bytes, file);
 	// check the number of bytes written
-	M_REQUIRE(nb_read == *mem_capacity_in_bytes, ERR_IO, "Error reading file %c", ' ');
+	M_REQUIRE(nb_read == *mem_capacity_in_bytes || handle_exit_error(file, memory), ERR_IO, "Error reading file %c", ' ');
 	fclose(file);
 	return ERR_NONE;
 	}
@@ -175,15 +179,14 @@ int page_file_read(void** memory,size_t memorySize, const uint64_t addr, const c
 		M_REQUIRE((addr + PAGE_SIZE) <= memorySize, ERR_MEM, "Cannot add a page of 4kB at the address : %"PRIx64" for memory size : %zu", addr,memorySize);
 		FILE* file = fopen(filename, "rb"); //open file to read from
 		// test the opening of file
-		M_REQUIRE_NON_NULL(file);
+		M_REQUIRE(file != NULL || handle_exit_error(file, memory), ERR_BAD_PARAMETER, "cannot open file : %s", filename);
 
 		byte_t* memoryFromAddr = (byte_t*)*memory; //pointer arithmetic to get right address
 		memoryFromAddr += addr;
-
-		M_REQUIRE_NON_NULL(memoryFromAddr); //checks that the cast to a byte* didnt ruin the pointer
+		M_REQUIRE(memoryFromAddr != NULL || handle_exit_error(file, memory), ERR_BAD_PARAMETER, "cannot cast pointer %c", ' '); //checks that the cast to a byte* didnt ruin the pointer
 		//read the content of filename
 		size_t nb_read = fread(memoryFromAddr, sizeof(byte_t), PAGE_SIZE,file); //check number of bytes read
-		M_REQUIRE(nb_read == PAGE_SIZE, ERR_IO, "Error reading file : %c", ' ');
+		M_REQUIRE(nb_read == PAGE_SIZE || handle_exit_error(file, memory), ERR_IO, "Error reading file : %c", ' ');
 		fclose(file);
 		return ERR_NONE;
 	}
@@ -241,33 +244,38 @@ int page_file_read(void** memory,size_t memorySize, const uint64_t addr, const c
  * 
  */
 int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes){
+	M_REQUIRE_NON_NULL(master_filename);
+	M_REQUIRE_NON_NULL(memory);
+	M_REQUIRE_NON_NULL(mem_capacity_in_bytes);
 	
 	FILE* f = fopen(master_filename, "r");
-	
+	M_REQUIRE(f != NULL || handle_exit_error(f, memory), ERR_BAD_PARAMETER, "cannot open file : %s", master_filename);
+	int err = ERR_NONE;
 	fscanf(f, "%zu", mem_capacity_in_bytes);
-	M_REQUIRE(fgetc(f) == '\n', ERR_IO, "Didn't get a new line : error %c", " ");
+	M_REQUIRE(fgetc(f) == '\n' || handle_exit_error(f, memory), ERR_IO, "Didn't get a new line : error %c", " ");
 	//alloc memory first
 	*memory = calloc(*mem_capacity_in_bytes, sizeof(byte_t));
-
+	M_REQUIRE(*memory != NULL || handle_exit_error(f, memory), ERR_MEM, "cannot allocate memory %s", master_filename);
+	
 	char pgd_location[maxFileSize];  //Reads the filename of PGD
 	fgets(pgd_location, maxFileSize, f);
-	strtok(pgd_location, "\n"); //removes newline char at the end
+	M_REQUIRE(!feof(f) || handle_exit_error(f, memory), ERR_EOF, "End of file %c",' ');// tests end of file
+	M_REQUIRE(strtok(pgd_location, "\n") != NULL || handle_exit_error(f, memory), ERR_BAD_PARAMETER, "wrong file name %c",' ');//removes newline char at the end
 	
-	page_file_read(memory, *mem_capacity_in_bytes, 0, pgd_location); //puts the pgd at address *memory[0] in memory
+	if ((err = page_file_read(memory, *mem_capacity_in_bytes, 0, pgd_location)) != ERR_NONE) return err; //puts the pgd at address *memory[0] in memory
 	size_t nb_tables; //THIRD LINE : NUMBER OF PDM+PUD+PTE
-	fscanf(f, "%zu", &nb_tables); //reads the number of tables
+	M_REQUIRE(fscanf(f, "%zu", &nb_tables) == 1, ERR_BAD_PARAMETER, "wrong number of tables %c",' '); //reads the number of tables
 	
 	for(size_t i =0; i < nb_tables ; i++){ //for each of these table
 		uint32_t location;
 		fscanf(f, "%" PRIX32, &location); //read the physical address of the table to put
-		M_REQUIRE(fgetc(f) == ' ', ERR_BAD_PARAMETER, "There should be a single space between the physical address and the path to the file %c", ' ' ); //removes the space between the address and the path to the file
+		M_REQUIRE(fgetc(f) == ' ' || handle_exit_error(f, memory), ERR_BAD_PARAMETER, "There should be a single space between the physical address and the path to the file %c", ' ' ); //removes the space between the address and the path to the file
 		char pageLocation[maxFileSize];  
 		fgets(pageLocation, maxFileSize, f); //gets the path to the file
-		strtok(pageLocation, "\n"); //removes newline char at the end
-		
+		M_REQUIRE(strtok(pageLocation, "\n") != NULL || handle_exit_error(f, memory), ERR_BAD_PARAMETER, "wrong file name %c",' '); //removes newline char at the end
 		//USE PAGE FILE READ FOR EVERY OF THOSE TABLES
 		
-		page_file_read(memory, *mem_capacity_in_bytes,location, pageLocation ); //places the file in path read at the physical address read
+		if ((err = page_file_read(memory, *mem_capacity_in_bytes,location, pageLocation)) != ERR_NONE) {handle_exit_error(f, memory); return err;} //places the file in path read at the physical address read
 	}
 	
 	while(!feof(f) && !ferror(f)){
@@ -275,27 +283,40 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 		uint64_t virtaddr;
 		char string[maxFileSize];
 		size_t s;
-		readUntilNextSpace(f, string,&s ); //reads the virtual address char by char to make sure to read up to the end of the file
-		if(s <= 0){return 0;}
+		if (readUntilNextSpace(f, string,&s) != ERR_NONE) ; //reads the virtual address char by char to make sure to read up to the end of the file
+		if(s <= 0){ 
+			fclose(f);
+			return ERR_NONE;
+			}
 		else{
 			string[s] = '\0'; //add a 0 at the end to make sure strtoull gets the right result
 			virtaddr = strtoull(string, (char**)NULL, 16); //convert the virtual address in char* to a uint64
 			string[s] = ' '; //resets the char at the end of the buffer
 		}
 		
-		readUntilNextSpace(f, string, &s); //reads the full file path 
-		if(s <= 0){return 0;} //if the size read is 0, we are at the end of the file : return
+		if ((err = readUntilNextSpace(f, string, &s)) != ERR_NONE) {handle_exit_error(f,memory); return err;}; //reads the full file path 
+		if(s <= 0){
+			fclose(f);
+			return ERR_NONE;
+			} //if the size read is 0, we are at the end of the file : return
 		string[s-1] = '\0'; //else : cut the file path  (remove the \n)
 		//CHANGE VIRTUAL TO PHYSICAL AND CALL PAGE READ
 		virt_addr_t virt;
-		init_virt_addr64(&virt, virtaddr); //inits the virtual address with the uint64 value we got by reading the file
+		if ((err = init_virt_addr64(&virt, virtaddr))!= ERR_NONE) {handle_exit_error(f, memory); return err;}; //inits the virtual address with the uint64 value we got by reading the file
 		phy_addr_t phy;
 		
-		page_walk(*memory, &virt, &phy); //translates the virtual address to a physical address
+		if ((err = page_walk(*memory, &virt, &phy)) != ERR_NONE) {handle_exit_error(f, memory); return err;} //translates the virtual address to a physical address
 		uint64_t physical = (phy.phy_page_num << PAGE_OFFSET )| phy.page_offset; //gets the physical address as a uint64		
-		page_file_read(memory, *mem_capacity_in_bytes, physical, &string[0]); //writes the raw page file at the translated physical address
+		if ((err = page_file_read(memory, *mem_capacity_in_bytes, physical, &string[0])) != ERR_NONE) {handle_exit_error(f, memory); return err;}; //writes the raw page file at the translated physical address
 		
 	}
 	fclose(f);
 	return ERR_NONE;
 }
+
+int handle_exit_error(FILE* file, void** memory){
+	if (file != NULL) fclose(file);
+	free(*memory);
+	*memory = NULL;
+	return 0; // returns always false for lazy eval
+	}
