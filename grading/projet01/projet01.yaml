@@ -19,7 +19,7 @@
 - commands.c: # NE PAS REMPLIR CETTE LIGNE
   - program_print(): 6          # max 7, missing sanity check -1
   - program_init(): 5           # max 6, wrong unit of representing allocated -1
-  - program_add_command(): 10    # max 16, 4/8 validity checks done -4, adaptation required -1, missing overflow check -1
+  - program_add_command(): 11    # max 16, 4/7 validity checks done -3, adaptation required -1, missing overflow check -1
   - program_shrink(): 5         # max 6, adaptation required -1
   - program_read(): # NE PAS REMPLIR CETTE LIGNE
       modularisation: 4               # max 5, with a bit of refactoring, you can modularize further your solution, typically the parsing of virtual address -1
