@@ -210,6 +210,39 @@ int tlb_entry_init( const virt_addr_t * vaddr, const phy_addr_t * paddr, void * 
 	return ERR_NONE;
 	}
 
+/**
+ * @brief Invalides a tlb entry, only made to be used inside of the method search, never else, hence it has previouslyValid and previousTag not as arguments, only used for genericity purposes
+ * 
+ * @param tlb        : tlb where we must check if we need to invalidate an entry
+ * @param vaddr      : address that gives us the line of the entry that we must invalidate
+ * @param TLB_LINES      : Number of lines in the given tlb
+ * 
+ * It first computes the index at which we must try to invalidate the entry using the vaddr and TLB_LINES and then applies the algorithm to invalidate as given in the pdf
+ */	
+
+	#define invalidate(tlb,vaddr,TLB_LINES) \
+	uint8_t index = virt_addr_t_to_virtual_page_number(vaddr) % TLB_LINES;\
+	if((previouslyValid && tlb[index].v && (tlb[index].tag >> 2== previousTag)) || needEviction) tlb[index].v = 0;\
+	
+/**
+ * @brief Creates and inserts a tlb entry into the tlb given as argument
+ * 
+ * @param entry_type : type of the entry that needs to be inserted
+ * @param tlb        : the tlb in which we insert the entry
+ * @param TLB_TYPE   : the type of the tlb in which we add the entry
+ * @param tlb_lines  : either L1_ITLB_LINES, L1_DTLB_LINES or L2_TLB_LINES, the number of lines in the tlb
+ * @param vaddr      : pointer to virtual address to extract the tag
+ * @param paddr      : pointer to physical address to extract the physical page number
+ * 
+ * It first creates an entry, initializes it, then computes the index in which we need to put it and finally inserts it
+ */	
+
+	#define create_and_insert_entry(entry_type, tlb, TLB_TYPE, tlb_lines, vaddr, paddr) \
+	entry_type entry;\
+	tlb_entry_init(vaddr, paddr, &entry,TLB_TYPE); \
+	uint8_t line = virt_addr_t_to_virtual_page_number(vaddr) % tlb_lines;\
+	tlb_insert(line, &entry, tlb, TLB_TYPE);\
+
 //=========================================================================
 /**
  * @brief Ask TLB for the translation.
@@ -244,6 +277,7 @@ int tlb_search( const void * mem_space,const virt_addr_t * vaddr, phy_addr_t * p
 		bool needEviction = true;
 		if(!*hit_or_miss){ //do page_walk if not found
 			M_REQUIRE(page_walk(mem_space, vaddr, paddr) == ERR_NONE, ERR_MEM, "Couldnt find the paddr corresponding to this vaddr", ""); //page walk to get the right paddr since we havent found
+			//here we would to use the macro we created to insert an entry but there is no point since we need to get the value previouslValid and previousTag anyways
 			uint8_t line = virt_addr_t_to_virtual_page_number(vaddr) % L2_TLB_LINES; //get the right line in the lvl2 to create the entry
 			l2_tlb_entry_t entry;
 			tlb_entry_init(vaddr, paddr, &entry, L2_TLB); //init the lvl2 entry
@@ -253,25 +287,17 @@ int tlb_search( const void * mem_space,const virt_addr_t * vaddr, phy_addr_t * p
 			needEviction = false; //boolean that tells us whether we also need to evict
 			tlb_insert(line, &entry, l2_tlb, L2_TLB);//inserts the new entry in the lvl2 tlb
 		}
-		//always need to insert in the lvl 1 tlb
-		//invalidate macro for genericity
-		#define invalidate(tlb,line) if((previouslyValid && tlb[line].v && (tlb[line].tag >> 2== previousTag)) || needEviction) tlb[line].v = 0;
 		if(access == INSTRUCTION){
-			//create entry + index
-			l1_itlb_entry_t entry; //inits the entry for the itlb
-			tlb_entry_init(vaddr,paddr,&entry, L1_ITLB);
-			uint8_t line = virt_addr_t_to_virtual_page_number(vaddr) % L1_ITLB_LINES;//get the right line for the itlb
-			tlb_insert(line, &entry, l1_itlb, L1_ITLB);// inserts the entry in the itlb
-			//invalidate entry in the other tlb (line is the same because both lvl1 tlbs have the same number of entries)
-			invalidate(l1_dtlb, line);
+			//creates and inserts the entry in this tlb
+			create_and_insert_entry(l1_itlb_entry_t, l1_itlb, L1_ITLB, L1_ITLB_LINES, vaddr,paddr);
+			//invalidate entry in the other tlb 
+			invalidate(l1_dtlb, vaddr, L1_DTLB_LINES);
 		}
 		else{
-			l1_dtlb_entry_t entry; //init the entry for the dtlb
-			tlb_entry_init(vaddr,paddr,&entry, L1_DTLB);
-			uint8_t line = virt_addr_t_to_virtual_page_number(vaddr) % L1_DTLB_LINES; //get the right line for inserting the entry in the dtlb
-			tlb_insert(line, &entry, l1_dtlb, L1_DTLB);//inserts the entry in the dtlb
-			//invalidate entry in the other tlb (line is the same because both lvl1 tlbs have the same number of entries)
-			invalidate(l1_itlb, line);
+			//creates and inserts the entry in this tlb
+			create_and_insert_entry(l1_dtlb_entry_t, l1_dtlb, L1_DTLB, L1_DTLB_LINES, vaddr,paddr);
+			//invalidate entry in the other tlb 
+			invalidate(l1_itlb, vaddr, L1_ITLB_LINES);
 		}
 		return ERR_NONE;
 		}
