@@ -24,9 +24,10 @@
  * 
  * it first test the overflow of sizeof(type)*NB_LINE
  */
-#define flush_generic(type, tlb, NB_LINES)                                                                       \
+#define flush_generic(type, tlb, NB_LINES)                                                               \
 	 M_REQUIRE((NB_LINES < SIZE_MAX/sizeof(type)), ERR_SIZE, "Could not memset : overflow, %c", " ");    \
-	 memset(tlb , 0, sizeof(type)*NB_LINES);                                                                     \
+	 memset(tlb , 0, sizeof(type)*NB_LINES);                                                             \
+	 return ERR_NONE;                                                                                    \
 //================================================================================================================
 /**
  * @brief Clean a TLB (invalidate, reset...). This function erases all TLB data.
@@ -43,7 +44,6 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
 	M_REQUIRE_NON_NULL(tlb);
 	// test if the tlb_type is a valid instance of tlb_t
 	M_REQUIRE(L1_ITLB <= tlb_type && tlb_type <= L2_TLB, ERR_BAD_PARAMETER, "%d is not a valid tlb_type \n", tlb_type);
-
 	// for each tlb type call the generic macro defined before
 	switch (tlb_type) {
         case L1_ITLB : flush_generic(l1_itlb_entry_t, tlb, L1_ITLB_LINES); break;
@@ -51,7 +51,7 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
         case L2_TLB  : flush_generic(l2_tlb_entry_t , tlb, L2_TLB_LINES ); break;
         default      : return ERR_BAD_PARAMETER; break;
     }
-	
+	//should not arrive here since each switch case contains a return (see macro expansion)
 	return ERR_NONE;
 	}
 
@@ -68,23 +68,25 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
  * @param paddr      : (modified) pointer to physical address
  * @param LINES_BITS : the number of bits needed to represent NB_LINES
  * @param NB_LINES   : the maximum number of lines of the tlb
- * @return HIS or MISS 
+ * @return HIS or MISS or MISS in case of an error
  * 
  * the method first computes the 64 bits virtual address in order to extract the tag and the 
  * line where the entry could be found.
  * 
  * if the entry is valid and the tag is correct => it's a hit and we update paddr else it's a miss
+ * if init_phy_addr fails we return 0 (MISS)
  */
-#define hit_generic(type, tlb, vaddr, paddr, LINES_BITS, NB_LINES)                   \
-	uint64_t addr = virt_addr_t_to_virtual_page_number(vaddr);                       \
-	uint32_t tag = (addr) >> (LINES_BITS);                                           \
-	uint8_t  line = (addr) % (NB_LINES);                                             \
-	type entry = ((type*) tlb)[line];                                                \
-	if (entry.tag == tag && entry.v == 1) {                                          \
-		init_phy_addr(paddr, entry.phy_page_num << PAGE_OFFSET, vaddr->page_offset); \
-		return HIT;                                                                  \
-		}                                                                            \
-	else return MISS;                                                                \
+#define hit_generic(type, tlb, vaddr, paddr, LINES_BITS, NB_LINES)                             \
+	uint64_t addr = virt_addr_t_to_virtual_page_number(vaddr);                                 \
+	uint32_t tag = (addr) >> (LINES_BITS);                                                     \
+	uint8_t  line = (addr) % (NB_LINES);                                                       \
+	type entry = ((type*) tlb)[line];                                                          \
+	if (entry.tag == tag && entry.v == 1) {                                                    \
+		int err = init_phy_addr(paddr, entry.phy_page_num << PAGE_OFFSET, vaddr->page_offset); \
+		if (err != ERR_NONE) return MISS;                                                      \
+		return HIT;                                                                            \
+		}                                                                                      \
+	else return MISS;                                                                          \
 //====================================================================================
 /**
  * @brief Check if a TLB entry exists in the TLB.
@@ -112,7 +114,7 @@ int tlb_hit( const virt_addr_t * vaddr, phy_addr_t * paddr, const void  * tlb, t
         case L2_TLB  : { hit_generic(l2_tlb_entry_t , tlb, vaddr, paddr, L2_TLB_LINES_BITS , L2_TLB_LINES );} break;
         default      : return ERR_BAD_PARAMETER; break;
     }
-    // should not arrive here 
+    // should not arrive here since each switch case contains a return (see macro expansion)
 	return MISS;
 	}
 
@@ -125,6 +127,7 @@ int tlb_hit( const virt_addr_t * vaddr, phy_addr_t * paddr, const void  * tlb, t
  * @param tlb_entry  : pointer to the tlb entry to insert
  * @param line_index : the number of the line to overwrite
  * @param NB_LINES   : the maximum number of lines of the tlb
+ * @param returns ERR_NONE or an error code in case of an error
  * 
  * it first validate line_index since line_index sould be smaller that NB_LINES
  * then it casts tlb and indexes it to update it with the new entry (that also need to be casted)
@@ -132,6 +135,7 @@ int tlb_hit( const virt_addr_t * vaddr, phy_addr_t * paddr, const void  * tlb, t
 #define insert_generic(type, tlb, tlb_entry, line_index, NB_LINES)                                                  \
 	M_REQUIRE(line_index < NB_LINES, ERR_BAD_PARAMETER, "%"PRIx32" should be smaller than " #NB_LINES, line_index); \
 	((type*)tlb)[line_index] = *((type*)tlb_entry);                                                                 \
+	return ERR_NONE;                                                                                                \
 
 //=========================================================================
 /**
@@ -145,7 +149,7 @@ int tlb_hit( const virt_addr_t * vaddr, phy_addr_t * paddr, const void  * tlb, t
  * @return  error code
  */
 
-int tlb_insert( uint32_t line_index, const void * tlb_entry, void * tlb,tlb_t tlb_type){
+int tlb_insert(uint32_t line_index, const void * tlb_entry, void * tlb,tlb_t tlb_type){
 	M_REQUIRE_NON_NULL(tlb);
 	M_REQUIRE_NON_NULL(tlb_entry);
 	// check that tlb_type is a valid instance of tlb_t
@@ -158,6 +162,7 @@ int tlb_insert( uint32_t line_index, const void * tlb_entry, void * tlb,tlb_t tl
         case L2_TLB  : insert_generic(l2_tlb_entry_t , tlb, tlb_entry, line_index, L2_TLB_LINES) ; break;
         default      : return ERR_BAD_PARAMETER; break;
     }
+    // should not arrive here since each switch case contains a return (see macro expansion)
 	return ERR_NONE;
 	}
 
@@ -173,6 +178,11 @@ int tlb_insert( uint32_t line_index, const void * tlb_entry, void * tlb,tlb_t tl
  * 
  * it first compute the tag by converting the vaddr to a 64 bits virtual address
  * then it set phy_page_num = (paddr)->phy_page_num and set the valid bit to 1
+ * 
+ * /!\ it is assumed that virt_addr_t_to_virtual_page_number will not generate any error since 
+ * vaddr cannot be null (it should be checked by the caller of the macro), so no need to propagate 
+ * the error. This is done because  virt_addr_t_to_virtual_page_number returns a value and we cannot 
+ * distinguish normal values from errors
  */		
 #define init_generic(type, tlb_entry, LINES_BITS, vaddr, paddr)                 \
 		type* entry = (type*)(tlb_entry);                                       \
@@ -206,7 +216,7 @@ int tlb_entry_init( const virt_addr_t * vaddr, const phy_addr_t * paddr, void * 
 		case L2_TLB  : { init_generic(l2_tlb_entry_t , tlb_entry, L2_TLB_LINES_BITS , vaddr, paddr);} break;
 		default      : return ERR_BAD_PARAMETER; break;
 		}
-	
+	// here the return is needed since the macro does not return anything
 	return ERR_NONE;
 	}
 
@@ -267,7 +277,8 @@ int tlb_search( const void * mem_space,const virt_addr_t * vaddr, phy_addr_t * p
 		M_REQUIRE_NON_NULL(l1_dtlb);
 		M_REQUIRE_NON_NULL(l2_tlb);
 		M_REQUIRE_NON_NULL(hit_or_miss);
-
+		M_REQUIRE(access == INSTRUCTION || access == DATA, ERR_BAD_PARAMETER, "access is not a valid instance of mem_access_t %c", ' ');
+		int err = ERR_NONE; // err used to propagate errors
 		*hit_or_miss = (access == INSTRUCTION)? tlb_hit(vaddr, paddr, l1_itlb, L1_ITLB):tlb_hit(vaddr, paddr, l1_dtlb, L1_DTLB);
 		if(*hit_or_miss == HIT) return ERR_NONE; //if found in lvl 1, return
 		
@@ -277,15 +288,17 @@ int tlb_search( const void * mem_space,const virt_addr_t * vaddr, phy_addr_t * p
 		bool needEviction = true;
 		if(!*hit_or_miss){ //do page_walk if not found
 			M_REQUIRE(page_walk(mem_space, vaddr, paddr) == ERR_NONE, ERR_MEM, "Couldnt find the paddr corresponding to this vaddr", ""); //page walk to get the right paddr since we havent found
+
 			//here we would to use the macro we created to insert an entry but there is no point since we need to get the value previouslValid and previousTag anyways
+			//assume that virt_addr_t_to_virtual_page_number does not return any error since vaddr is not null
 			uint8_t line = virt_addr_t_to_virtual_page_number(vaddr) % L2_TLB_LINES; //get the right line in the lvl2 to create the entry
 			l2_tlb_entry_t entry;
-			tlb_entry_init(vaddr, paddr, &entry, L2_TLB); //init the lvl2 entry
+			if ((err = tlb_entry_init(vaddr, paddr, &entry, L2_TLB))!= ERR_NONE) {return err;} //init the lvl2 entry and propagate error if needed
 			//check if there was a previously valid entry at this part
 			previouslyValid = l2_tlb[line].v; //init previouslyValid and tag
 			previousTag = (l2_tlb[line].tag);
 			needEviction = false; //boolean that tells us whether we also need to evict
-			tlb_insert(line, &entry, l2_tlb, L2_TLB);//inserts the new entry in the lvl2 tlb
+			if ((err = tlb_insert(line, &entry, l2_tlb, L2_TLB)) != ERR_NONE) {return err;}//inserts the new entry in the lvl2 tlb propagate error if needed
 		}
 		if(access == INSTRUCTION){
 			//creates and inserts the entry in this tlb
