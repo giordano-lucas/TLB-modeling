@@ -132,6 +132,7 @@ int init_virt_addr64(virt_addr_t * vaddr, uint64_t vaddr64){
  * 
  */
 int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset){
+					   M_REQUIRE((page_begin&mask32(PAGE_OFFSET)) == 0, ERR_BAD_PARAMETER, "Page begin must be a multiple of Page_offset value is : %d", page_begin&mask32(PAGE_OFFSET));
 					   M_REQUIRE(isOfSizeAsked32(PAGE_OFFSET, page_offset), ERR_BAD_PARAMETER, "Page offset = %" PRIu16 " not on 12 bits", page_offset);
 					   M_REQUIRE_NON_NULL(paddr);
 					   paddr->phy_page_num = (page_begin >> PAGE_OFFSET);
@@ -191,6 +192,6 @@ int print_virtual_address(FILE* where, const virt_addr_t* vaddr){
  */
 int print_physical_address(FILE* where, const phy_addr_t* paddr){
 	M_REQUIRE_NON_NULL(paddr);
-	return fprintf(where, "page num=0x%" PRIX32 "; offset=0x%" PRIX32, paddr->phy_page_num, paddr->page_offset);
+	return fprintf(where, "page num=0x%" PRIX32 "; offset=0x%" PRIX16, paddr->phy_page_num, paddr->page_offset);
 }
 

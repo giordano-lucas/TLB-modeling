@@ -62,6 +62,7 @@ check:: all
 
 IMAGE=arashpz/feedback
 feedback:
+	@docker pull $(IMAGE)
 	@docker run -it --rm -v ${PWD}:/home/tester/done $(IMAGE)
 
 SUBMIT_SCRIPT=../provided/submit.sh

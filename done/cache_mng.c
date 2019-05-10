@@ -96,9 +96,14 @@ int cache_hit (const void * mem_space, void * cache, phy_addr_t * paddr, const u
 			return ERR_NONE;
 		}
 	}
+
+
+#define init_cache_entry(TYPE, LINE, AGE,VALID)
+=======
 	//if we arrive here no entry has been found
 	return ERR_NONE;
 }
+
 //=========================================================================
 /**
  * @brief Insert an entry to a cache.
@@ -110,11 +115,27 @@ int cache_hit (const void * mem_space, void * cache, phy_addr_t * paddr, const u
  * @param cache_type to distinguish between different caches
  * @return  error code
  */
+
 int cache_insert(uint16_t cache_line_index,
                  uint8_t cache_way,
                  const void * cache_line_in,
                  void * cache,
-                 cache_t cache_type);
+                 cache_t cache_type){
+	M_REQUIRE_NON_NULL(cache);
+	M_REQUIRE_NON_NULL(cache_line_in);
+	word_t line = *((word_t*)cache_line_in);
+	
+	switch (cache_type) {
+         case L1_ICACHE : 
+         cache_line(L1_ICACHE, L1_ICACHE_WAYS, cache_line_index, cache_way) = line;
+         
+         break;
+         case L1_DCACHE :
+         case L2_CACHE  : 
+         default        : return ERR_BAD_PARAMETER; break;
+    }
+					
+				 }
 
 //=========================================================================
 /**

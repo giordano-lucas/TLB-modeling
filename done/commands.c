@@ -35,21 +35,17 @@ int program_init(program_t* program){
 	M_REQUIRE_NON_NULL(program);
 	
 	program->nb_lines = 0;
-	program->allocated = START_COMMANDS_ALLOCATED;
-	virt_addr_t v;
-	init_virt_addr(&v,0,0,0,0,0);
-	// initilize command to 0
-	command_t command0 = {0,0,0,0,v}; 
+	//allocated has its sized defined in memory, cant overflow right now
+	program->allocated = START_COMMANDS_ALLOCATED*sizeof(command_t);
+	 
 	// dynamic allocation
+	
 	program->listing = calloc(START_COMMANDS_ALLOCATED, sizeof(command_t));
 	
 	M_REQUIRE_NON_NULL(program->listing); // error case
 	M_EXIT_IF_NULL(program->listing, START_COMMANDS_ALLOCATED*sizeof(command_t)); // error case
 	
-	for (int i = 0 ; i < program->allocated ; ++i){
-		// set all 10 commands to the empty command command0
-		(program->listing)[i] = command0;
-	}	
+	
 	return ERR_NONE;
 }
 /**
@@ -101,6 +97,7 @@ int program_print(FILE* output, const program_t* program){
 	M_REQUIRE_NON_NULL(output);
 	
 	for(int i = 0; i< program->nb_lines; i++){
+		M_REQUIRE_NON_NULL(program->listing);
 		command_t com = program->listing[i];
 		
 		// validation of com
@@ -144,19 +141,16 @@ int program_print(FILE* output, const program_t* program){
  */
 int program_shrink(program_t* program){
 	M_REQUIRE_NON_NULL(program);
+	
 	if(program->nb_lines > 0){
-		while(program->allocated > program->nb_lines){
+		while(program->allocated/sizeof(command_t) > program->nb_lines){
 			// resize to nb_lines
-			M_REQUIRE((program_resize(program, program->nb_lines) == ERR_NONE), ERR_MEM, "Could not resize %c", '\0');
+			M_REQUIRE((program_resize(program, program->nb_lines*sizeof(command_t)) == ERR_NONE), ERR_MEM, "Could not resize %c", '\0');
 			}
-	}
-	else if(program->nb_lines < 0){
-		// error case, nb_lines should not be negative
-		return ERR_BAD_PARAMETER;
 	}
 	else{
 		// if nb_lines == 0 reset the lines to 10
-		M_REQUIRE(program_resize(program, START_COMMANDS_ALLOCATED) == ERR_NONE, ERR_MEM, "Could not resize %c", '\0');
+		M_REQUIRE(program_resize(program, START_COMMANDS_ALLOCATED*sizeof(command_t)) == ERR_NONE, ERR_MEM, "Could not resize %c", '\0');
 	}
 	return ERR_NONE;
 	}	
@@ -171,13 +165,14 @@ int program_shrink(program_t* program){
 	 * 
 	 */
 	int program_resize(program_t* prog, size_t newSize){
+		
 		M_REQUIRE_NON_NULL(prog);
 		M_REQUIRE_NON_NULL(prog->listing);
 		program_t copy = *prog;
 		copy.allocated = newSize;
 		
 		// check overflow multiplication and test reallocation
-		if(copy.allocated > (SIZE_MAX/sizeof(command_t)) || (copy.listing = realloc(copy.listing, copy.allocated*sizeof(command_t))) == NULL ){
+		if(newSize > SIZE_MAX || (copy.listing = realloc(copy.listing, copy.allocated)) == NULL ){
 				return ERR_MEM;
 		}
 		
@@ -201,19 +196,23 @@ int program_shrink(program_t* program){
  * Returns ERR_MEM if program already contains 100 commands
  * 
  */
+ #define BYTE_MAX 32767
 int program_add_command(program_t* program, const command_t* command){
 	M_REQUIRE_NON_NULL(program);
 	M_REQUIRE_NON_NULL(command);
-	
+	M_REQUIRE(command->type == INSTRUCTION || command->type == DATA, ERR_BAD_PARAMETER, "Type must be either an instruction or data", "");
+	M_REQUIRE(command->order == WRITE || command->order == READ, ERR_BAD_PARAMETER, "Order must be either a write or a read", "");
+	M_REQUIRE(!(command->order == READ && command->write_data > 0), ERR_BAD_PARAMETER, "No data size when reading, data size : %d, order : %d", command->data_size, command->order);
+	M_REQUIRE(command->write_data <= BYTE_MAX || command->data_size == sizeof(word_t), ERR_BAD_PARAMETER, "Data size is a byte but the actual size is bigger than a byte" ,"");
 	//incorect size
-	 M_REQUIRE((command->type == INSTRUCTION)? (command->data_size == sizeof(word_t)): (command->data_size == 1 || command->data_size == sizeof(word_t)), ERR_SIZE, "Data size = %zu, type = %d, must be of size %lu for Instructions and of size 1 or %lu for Data", command->data_size, command->type, sizeof(word_t), sizeof(word_t));
+	 M_REQUIRE((command->type == INSTRUCTION)? (command->data_size == sizeof(word_t)): (command->data_size == 1 || command->data_size == sizeof(word_t)), ERR_BAD_PARAMETER, "Data size = %zu, type = %d, must be of size %lu for Instructions and of size 1 or %lu for Data", command->data_size, command->type, sizeof(word_t), sizeof(word_t));
 	// Cannot write with an instruction
 	 M_REQUIRE(!(command->type == INSTRUCTION && command->order == WRITE), ERR_BAD_PARAMETER, "Cannot write with an instruction%c", ' ');
 	//invalid  virtual addr 
-	 M_REQUIRE((command->vaddr.page_offset % command->data_size == 0), ERR_ADDR, "Page Offset size = %" PRIu16 " must be a multiple of data size", command->vaddr.page_offset);
+	 M_REQUIRE((command->vaddr.page_offset % command->data_size == 0), ERR_BAD_PARAMETER, "Page Offset size = %" PRIu16 " must be a multiple of data size", command->vaddr.page_offset);
 	
-	while(program->nb_lines >= program->allocated){
-		M_REQUIRE(program_resize(program, (program->allocated)*2) == ERR_NONE, ERR_MEM, "Could not resize %c", ' ');
+	while(program->nb_lines*sizeof(command_t) >= program->allocated){
+		M_REQUIRE(program_resize(program, 2*program->allocated) == ERR_NONE, ERR_MEM, "Could not resize %c", ' ');
 	}
 	
 	program->listing[program->nb_lines] = *command;
@@ -371,7 +370,25 @@ int handleTypeSize(command_t* command, FILE* input){
 	return ERR_NONE;
 }
 
-
+int handle_virt_addr(char buffer[], size_t* s, FILE* input, command_t* command){
+	readUntilNextWhiteSpace(input, buffer, s);
+	M_REQUIRE(*s >= 4 && *s <= 20, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
+	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
+	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
+	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
+	M_REQUIRE(buffer[*s-1] == '\n', ERR_BAD_PARAMETER, "virt addr must end with newline%c", ' ');
+	for(int i =0; i < 3; i++){ //fills the @0x with spaces so strtoull can parse the hex
+		buffer[i] = ' ';
+	}
+	buffer[*s] = '\0';
+	M_REQUIRE(isHexString(buffer, 3, *s-1), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' '); //requires that it indeed is a hex string
+	char* after_number;
+	uint64_t virt = (uint64_t) strtoull(buffer, &after_number, 16); //unsigned long long to uint64, parses the virtual address in the buffer
+	M_REQUIRE((buffer+2) != after_number, ERR_BAD_PARAMETER, "strtoull didnt manage to read a number", "" );
+	int err = ERR_NONE;
+	if((err = init_virt_addr64(&(command->vaddr), virt)) != ERR_NONE) return err;
+	
+}
 	/**
 	 * Fills the order of the command, calls handleTypeSize to fill the type and size of the command
 	 * Fills in the virtual address of the command using readUntilNextWhiteSpace and strtoull to parse the hex string into a uint64
@@ -384,23 +401,12 @@ int handleRead(command_t* command, FILE* input){
 	
 	command->order = READ;
 	handleTypeSize(command, input);  //Fills the type and size
+	
 	size_t s;
 	char buffer[MAX_SIZE_BUFFER];
 	command->write_data = 0;  //since it is a read
 	//===================VIRT ADDR=================================
-	readUntilNextWhiteSpace(input, buffer, &s);
-	M_REQUIRE(s >= 4 && s <= 20, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
-	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
-	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
-	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
-	M_REQUIRE(buffer[s-1] == '\n', ERR_BAD_PARAMETER, "virt addr must end with newline%c", ' ');
-	for(int i =0; i < 3; i++){ //fills the @0x with spaces so strtoull can parse the hex
-		buffer[i] = ' ';
-	}
-	buffer[s] = '\0';
-	M_REQUIRE(isHexString(buffer, 3, s-1), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' '); //requires that it indeed is a hex string
-	uint64_t virt = (uint64_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64, parses the virtual address in the buffer
-	init_virt_addr64(&(command->vaddr), virt);
+	handle_virt_addr(buffer, &s,input, command);
 	return ERR_NONE;
 }
 
@@ -426,24 +432,12 @@ int handleWrite(command_t* command, FILE* input){
 	}
 	buffer[s] = '\0';
 	M_REQUIRE(isHexString(buffer, 2, s), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' '); //if indeed a hex string
-	fflush(stdout);
-	command->write_data = (word_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to word_t, parses the hex string
-	fflush(stdout);
+	char* after_number;
+	command->write_data = (word_t) strtoull(buffer, &after_number, 16); //unsigned long long to word_t, parses the hex string
+	M_REQUIRE((buffer+1) != after_number, ERR_BAD_PARAMETER, "strtoull didnt manage to read a number", "" );
 	
 	//=======================VIRT ADDR==========================
-	readUntilNextWhiteSpace(input, buffer, &s);
-	M_REQUIRE(s >= 4 &&s <= 20, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
-	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
-	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
-	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
-	M_REQUIRE(buffer[s-1] == '\n', ERR_BAD_PARAMETER, "virt addr must end with newline%c", ' ');
-	for(int i =0; i < 3; i++){ //fills with spaces so the parser can work without the @0x
-		buffer[i] = ' ';
-	}
-	buffer[s] = '\0';
-	M_REQUIRE(isHexString(buffer, 3, s-1), ERR_BAD_PARAMETER, "IT IS NOT A HEX STRING%c", ' '); //if indeed a hex string
-	uint64_t virt = (uint64_t) strtoull(buffer, (char **)NULL, 16); //unsigned long long to uint64, parses the hex string
-	init_virt_addr64(&(command->vaddr), virt);
+	handle_virt_addr(buffer, &s,input, command);
 	return ERR_NONE;
 }
 /**
@@ -489,5 +483,7 @@ int program_free(program_t* program){
 	M_REQUIRE_NON_NULL(program);
 	free(program->listing);
 	program->listing = NULL;
+	program->allocated = 0;
+	program->nb_lines = 0;
 	return ERR_NONE;
 	}
