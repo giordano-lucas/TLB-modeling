@@ -91,6 +91,7 @@
 // --------------------------------------------------
 #define cache_line(TYPE, WAYS, LINE_INDEX, WAY) \
         cache_entry(TYPE, WAYS, LINE_INDEX, WAY)->line
+// --------------------------------------------------
 
 /*
  * struct that reprensents an entry in the L1_ICACHE
