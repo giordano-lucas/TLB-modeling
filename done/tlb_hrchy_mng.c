@@ -246,9 +246,10 @@ int tlb_entry_init( const virt_addr_t * vaddr, const phy_addr_t * paddr, void * 
 
 	#define create_and_insert_entry(entry_type, tlb, TLB_TYPE, tlb_lines, vaddr, paddr) \
 	entry_type entry;\
-	tlb_entry_init(vaddr, paddr, &entry,TLB_TYPE); \
+	int err;\
+	if((err = tlb_entry_init(vaddr, paddr, &entry,TLB_TYPE)) != ERR_NONE) return err; \
 	uint8_t line = virt_addr_t_to_virtual_page_number(vaddr) % tlb_lines;\
-	tlb_insert(line, &entry, tlb, TLB_TYPE);\
+	if((err = tlb_insert(line, &entry, tlb, TLB_TYPE)) != ERR_NONE) return err;\
 
 //=========================================================================
 /**
