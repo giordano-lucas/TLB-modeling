@@ -30,7 +30,8 @@
  * @return error code
  */
 int tlb_flush(tlb_entry_t * tlb){
-	M_REQUIRE((TLB_LINES > SIZE_MAX/sizeof(tlb_entry_t)) == 0, ERR_IO, "Couldnt memset : overflow, %c", " ");
+	M_REQUIRE_NON_NULL(tlb);
+	M_REQUIRE((TLB_LINES > SIZE_MAX/sizeof(tlb_entry_t)) == 0, ERR_IO, "Couldnt memset : overflow, %c", " "); //memset all the size that is needed for tlb_lines* the size of an entry to 0
 	memset(tlb , 0, sizeof(tlb_entry_t)*TLB_LINES);
 	return ERR_NONE;
 }
@@ -48,23 +49,25 @@ int tlb_flush(tlb_entry_t * tlb){
  * @return hit (1) or miss (0)
  */
 int tlb_hit(const virt_addr_t * vaddr, phy_addr_t * paddr,const tlb_entry_t * tlb,replacement_policy_t * replacement_policy){
-				if(vaddr == NULL || paddr == NULL || tlb == NULL || replacement_policy == NULL){
+				if(vaddr == NULL || paddr == NULL || tlb == NULL || replacement_policy == NULL){ //cant require non null since the return value contains information about hit
 					return 0;
 				}
-				uint64_t tag = virt_addr_t_to_virtual_page_number(vaddr);
-				node_t* n = (replacement_policy->ll)->back;
-				while(n != NULL){
-					list_content_t value = n->value;
-					M_REQUIRE(value < TLB_LINES, ERR_BAD_PARAMETER, "Index to set has to be inferior to TLBLINES, %c" ,"");
+				//cant propagate an error with this function since it is supposed to return a uint64 anyways
+				uint64_t tag = virt_addr_t_to_virtual_page_number(vaddr); //first we extract the tag from the virt addr
+				node_t* n = (replacement_policy->ll)->back; //we get the last node in the list
+				while(n != NULL){ //iterate on the full list, each time going to the previous one in order to end at the first
+					list_content_t value = n->value; //get the value corresponding to this node
+					M_REQUIRE(value < TLB_LINES, ERR_BAD_PARAMETER, "Index to set has to be inferior to TLBLINES, %c" ,""); //the value in the node corresponds to an index : must be inferior to tlblines
 					
 					if(tlb[value].tag == tag && tlb[value].v == 1){ //we got a hit
-						init_phy_addr(paddr, tlb[value].phy_page_num << PAGE_OFFSET, vaddr->page_offset);
-						replacement_policy->move_back((replacement_policy->ll), n);
-						return 1;
+						int err;
+						if((err = init_phy_addr(paddr, tlb[value].phy_page_num << PAGE_OFFSET, vaddr->page_offset)) != ERR_NONE) return err; //if we hit, initialize a paddr to the value found
+						replacement_policy->move_back((replacement_policy->ll), n); //move back the node
+						return 1; //hit
 					}
-					n = n->previous;
+					n = n->previous; //if no hit, iterate
 				}
-				return 0;
+				return 0; //if no hit after iterating through all nodes, miss
 				
 			}
 
@@ -104,9 +107,10 @@ int tlb_entry_init( const virt_addr_t * vaddr,
 						M_REQUIRE_NON_NULL(vaddr);
 						M_REQUIRE_NON_NULL(paddr);
 						M_REQUIRE_NON_NULL(tlb_entry);
-						tlb_entry->tag = virt_addr_t_to_virtual_page_number(vaddr);
-						tlb_entry->phy_page_num = paddr->phy_page_num;
-						tlb_entry->v = 1;
+						//cant propagate an error with this function since it is supposed to return a uint64 anyways
+						tlb_entry->tag = virt_addr_t_to_virtual_page_number(vaddr); //sets the tag to the virt addr
+						tlb_entry->phy_page_num = paddr->phy_page_num; //sets the page num to the paddr's page num
+						tlb_entry->v = 1; //set validity bit to one since when we init an entry we want to insert it
 						return ERR_NONE;
 					}
 
@@ -122,7 +126,7 @@ int tlb_entry_init( const virt_addr_t * vaddr,
  * @return error code
  */
 int tlb_search( const void * mem_space, const virt_addr_t * vaddr,  phy_addr_t * paddr, tlb_entry_t * tlb,replacement_policy_t * replacement_policy, int* hit_or_miss){
-		M_REQUIRE_NON_NULL(mem_space);
+		M_REQUIRE_NON_NULL(mem_space); //checks that all pointers are non null
 		M_REQUIRE_NON_NULL(vaddr);
 		M_REQUIRE_NON_NULL(paddr);
 		M_REQUIRE_NON_NULL(tlb);
