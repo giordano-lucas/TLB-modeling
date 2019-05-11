@@ -27,7 +27,7 @@
 #define flush_generic(type, tlb, NB_LINES)                                                               \
 	 M_REQUIRE((NB_LINES < SIZE_MAX/sizeof(type)), ERR_SIZE, "Could not memset : overflow, %c", " ");    \
 	 memset(tlb , 0, sizeof(type)*NB_LINES);                                                             \
-	 return ERR_NONE;                                                                                    \
+	 return ERR_NONE;                                                                                    
 //================================================================================================================
 /**
  * @brief Clean a TLB (invalidate, reset...). This function erases all TLB data.
@@ -86,7 +86,7 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
 		if (err != ERR_NONE) return MISS;                                                      \
 		return HIT;                                                                            \
 		}                                                                                      \
-	else return MISS;                                                                          \
+	else return MISS;                                                                          
 //====================================================================================
 /**
  * @brief Check if a TLB entry exists in the TLB.
@@ -135,7 +135,7 @@ int tlb_hit( const virt_addr_t * vaddr, phy_addr_t * paddr, const void  * tlb, t
 #define insert_generic(type, tlb, tlb_entry, line_index, NB_LINES)                                                  \
 	M_REQUIRE(line_index < NB_LINES, ERR_BAD_PARAMETER, "%"PRIx32" should be smaller than " #NB_LINES, line_index); \
 	((type*)tlb)[line_index] = *((type*)tlb_entry);                                                                 \
-	return ERR_NONE;                                                                                                \
+	return ERR_NONE;                                                                                                
 
 //=========================================================================
 /**
@@ -188,7 +188,7 @@ int tlb_insert(uint32_t line_index, const void * tlb_entry, void * tlb,tlb_t tlb
 		type* entry = (type*)(tlb_entry);                                       \
 		entry->tag = virt_addr_t_to_virtual_page_number(vaddr) >> (LINES_BITS); \
 		entry->phy_page_num = (paddr)->phy_page_num;                            \
-		entry->v = 1;                                                           \
+		entry->v = 1;                                                           
 		
 //=========================================================================
 /**
