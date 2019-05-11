@@ -262,9 +262,9 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	M_REQUIRE(!feof(f) || handle_exit_error(f, memory), ERR_EOF, "End of file %c",' ');// tests end of file
 	M_REQUIRE(strtok(pgd_location, "\n") != NULL || handle_exit_error(f, memory), ERR_BAD_PARAMETER, "wrong file name %c",' ');//removes newline char at the end
 	
-	if ((err = page_file_read(memory, *mem_capacity_in_bytes, 0, pgd_location)) != ERR_NONE) return err; //puts the pgd at address *memory[0] in memory
+	if ((err = page_file_read(memory, *mem_capacity_in_bytes, 0, pgd_location)) != ERR_NONE) {handle_exit_error(f, memory);return err;} //puts the pgd at address *memory[0] in memory
 	size_t nb_tables; //THIRD LINE : NUMBER OF PDM+PUD+PTE
-	M_REQUIRE(fscanf(f, "%zu", &nb_tables) == 1, ERR_BAD_PARAMETER, "wrong number of tables %c",' '); //reads the number of tables
+	M_REQUIRE((fscanf(f, "%zu", &nb_tables) == 1) || handle_exit_error(f, memory), ERR_BAD_PARAMETER, "wrong number of tables %c",' '); //reads the number of tables
 	
 	for(size_t i =0; i < nb_tables ; i++){ //for each of these table
 		uint32_t location;
@@ -284,13 +284,15 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 		char string[maxFileSize];
 		size_t s;
 		if (readUntilNextSpace(f, string,&s) != ERR_NONE) ; //reads the virtual address char by char to make sure to read up to the end of the file
-		if(s <= 0){ 
+		if(s == 0){ 
 			fclose(f);
 			return ERR_NONE;
 			}
 		else{
 			string[s] = '\0'; //add a 0 at the end to make sure strtoull gets the right result
-			virtaddr = strtoull(string, (char**)NULL, 16); //convert the virtual address in char* to a uint64
+			char* afterNumber;
+			virtaddr = strtoull(string, &afterNumber, 16); //convert the virtual address in char* to a uint64
+			M_REQUIRE(string != afterNumber || handle_exit_error(f,memory), ERR_BAD_PARAMETER, "strtoull didnt manage to read a number", "" ); //error check of strtoull
 			string[s] = ' '; //resets the char at the end of the buffer
 		}
 		
