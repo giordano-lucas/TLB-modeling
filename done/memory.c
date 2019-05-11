@@ -152,9 +152,7 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 	//allocate memory
 	*memory = calloc(*mem_capacity_in_bytes, sizeof(byte_t));
 	// test succes of allocation 
-	if (*memory == NULL){
-		fclose(file); return ERR_MEM;// memory error
-		}
+	if (*memory == NULL){ fclose(file); return ERR_MEM;} // memory error
 	
 	size_t nb_read = fread(*memory, sizeof(byte_t), *mem_capacity_in_bytes, file);
 	// check the number of bytes written
@@ -315,7 +313,14 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	fclose(f);
 	return ERR_NONE;
 }
-
+/**
+ * this method is used to close resources in case of an error
+ * 
+ * it returns 0 = false in order to use it inside M_REQUIRE satements using the lazy evaluation of booleens 
+ * ex : M_REQUIRE( conditions || handle_exit_error, ERR, ...)
+ * in that sense handle_exit_error will only be executed in case of an error (condition is false) and does change the result of the 
+ * inital conditions : condition || false = condition 
+ */
 int handle_exit_error(FILE* file, void** memory){
 	if (file != NULL) fclose(file);
 	free(*memory);

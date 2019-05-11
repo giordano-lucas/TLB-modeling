@@ -52,7 +52,6 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
         default      : return ERR_BAD_PARAMETER; break;
     }
 	//should not arrive here since each switch case contains a return (see macro expansion)
-	return ERR_NONE;
 	}
 
 //====================================================================================
@@ -112,10 +111,9 @@ int tlb_hit( const virt_addr_t * vaddr, phy_addr_t * paddr, const void  * tlb, t
         case L1_ITLB : { hit_generic(l1_itlb_entry_t, tlb, vaddr, paddr, L1_ITLB_LINES_BITS, L1_ITLB_LINES);} break;
         case L1_DTLB : { hit_generic(l1_dtlb_entry_t, tlb, vaddr, paddr, L1_DTLB_LINES_BITS, L1_DTLB_LINES);} break;
         case L2_TLB  : { hit_generic(l2_tlb_entry_t , tlb, vaddr, paddr, L2_TLB_LINES_BITS , L2_TLB_LINES );} break;
-        default      : return ERR_BAD_PARAMETER; break;
+        default      : return MISS; break;
     }
     // should not arrive here since each switch case contains a return (see macro expansion)
-	return MISS;
 	}
 
 //=========================================================================
@@ -163,7 +161,6 @@ int tlb_insert(uint32_t line_index, const void * tlb_entry, void * tlb,tlb_t tlb
         default      : return ERR_BAD_PARAMETER; break;
     }
     // should not arrive here since each switch case contains a return (see macro expansion)
-	return ERR_NONE;
 	}
 
 //=========================================================================
@@ -278,6 +275,7 @@ int tlb_search( const void * mem_space,const virt_addr_t * vaddr, phy_addr_t * p
 		M_REQUIRE_NON_NULL(l2_tlb);
 		M_REQUIRE_NON_NULL(hit_or_miss);
 		M_REQUIRE(access == INSTRUCTION || access == DATA, ERR_BAD_PARAMETER, "access is not a valid instance of mem_access_t %c", ' ');
+		
 		int err = ERR_NONE; // err used to propagate errors
 		*hit_or_miss = (access == INSTRUCTION)? tlb_hit(vaddr, paddr, l1_itlb, L1_ITLB):tlb_hit(vaddr, paddr, l1_dtlb, L1_DTLB);
 		if(*hit_or_miss == HIT) return ERR_NONE; //if found in lvl 1, return

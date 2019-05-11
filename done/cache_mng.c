@@ -80,30 +80,22 @@ int cache_hit (const void * mem_space, void * cache, phy_addr_t * paddr, const u
 
 
 	foreach_way(way, L1_ICACHE_WAYS) {
-		if (!cache_valid(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) ){
-			//found a place
-			//update ages
-			LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);
+		if (!cache_valid(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) ){//found a place
+			LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);//update ages
 			return ERR_NONE;
 			}
-		else if (cache_tag(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) == tag){
-			//hit
+		else if (cache_tag(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) == tag){//hit
 			*p_line = cache_line(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);
 			*hit_way = way;
 			*hit_index = line_index;
-			//update ages
-			LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);
+			LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);//update ages
 			return ERR_NONE;
 		}
 	}
-
-
-#define init_cache_entry(TYPE, LINE, AGE,VALID)
-=======
 	//if we arrive here no entry has been found
 	return ERR_NONE;
 }
-
+#define init_cache_entry(TYPE, LINE, AGE,VALID)
 //=========================================================================
 /**
  * @brief Insert an entry to a cache.
@@ -116,22 +108,19 @@ int cache_hit (const void * mem_space, void * cache, phy_addr_t * paddr, const u
  * @return  error code
  */
 
-int cache_insert(uint16_t cache_line_index,
-                 uint8_t cache_way,
-                 const void * cache_line_in,
-                 void * cache,
-                 cache_t cache_type){
+int cache_insert(uint16_t cache_line_index,uint8_t cache_way,const void * cache_line_in,
+                 void * cache, cache_t cache_type){
 	M_REQUIRE_NON_NULL(cache);
 	M_REQUIRE_NON_NULL(cache_line_in);
 	word_t line = *((word_t*)cache_line_in);
 	
 	switch (cache_type) {
          case L1_ICACHE : 
-         cache_line(L1_ICACHE, L1_ICACHE_WAYS, cache_line_index, cache_way) = line;
-         
+        // cache_line(L1_ICACHE, L1_ICACHE_WAYS, cache_line_index, cache_way) = line;
+         return ERR_NONE;
          break;
-         case L1_DCACHE :
-         case L2_CACHE  : 
+         case L1_DCACHE : return ERR_NONE;
+         case L2_CACHE  : return ERR_NONE;
          default        : return ERR_BAD_PARAMETER; break;
     }
 					
@@ -398,7 +387,13 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
  */
 int cache_read_byte(const void * mem_space, phy_addr_t * p_paddr, mem_access_t access,
 					void * l1_cache,void * l2_cache,uint8_t * p_byte, cache_replace_t replace){
-	
+	M_REQUIRE_NON_NULL(mem_space);
+	M_REQUIRE_NON_NULL(p_paddr);
+	M_REQUIRE_NON_NULL(l1_cache);	
+	M_REQUIRE_NON_NULL(l2_cache);	
+	M_REQUIRE_NON_NULL(p_byte);	
+	M_REQUIRE(replace == LRU, ERR_BAD_PARAMETER, "replace is not a valid instance of cache_replace_t %c", ' ');
+	M_REQUIRE(access == INSTRUCTION || access == DATA, ERR_BAD_PARAMETER, "access is not a valid instance of mem_access_t %c", ' ');
 						
 	return ERR_NONE;
 }
@@ -416,12 +411,16 @@ int cache_read_byte(const void * mem_space, phy_addr_t * p_paddr, mem_access_t a
  * @param replace replacement policy
  * @return error code
  */
-int cache_write(void * mem_space,
-                phy_addr_t * paddr,
-                void * l1_cache,
-                void * l2_cache,
-                const uint32_t * word,
-                cache_replace_t replace);
+int cache_write(void * mem_space,phy_addr_t * paddr, void * l1_cache,
+                void * l2_cache,const uint32_t * word, cache_replace_t replace){
+	M_REQUIRE_NON_NULL(mem_space);
+	M_REQUIRE_NON_NULL(paddr);
+	M_REQUIRE_NON_NULL(l1_cache);	
+	M_REQUIRE_NON_NULL(l2_cache);	
+	M_REQUIRE_NON_NULL(word);	
+	M_REQUIRE(replace == LRU, ERR_BAD_PARAMETER, "replace is not a valid instance of cache_replace_t %c", ' ');
+	return ERR_NONE;
+	}
 
 //=========================================================================
 /**
@@ -435,9 +434,12 @@ int cache_write(void * mem_space,
  * @param replace replacement policy
  * @return error code
  */
-int cache_write_byte(void * mem_space,
-                     phy_addr_t * paddr,
-                     void * l1_cache,
-                     void * l2_cache,
-                     uint8_t p_byte,
-                     cache_replace_t replace);
+int cache_write_byte(void * mem_space, phy_addr_t * paddr, void * l1_cache,
+                     void * l2_cache, uint8_t p_byte,cache_replace_t replace){
+	M_REQUIRE_NON_NULL(mem_space);
+	M_REQUIRE_NON_NULL(paddr);
+	M_REQUIRE_NON_NULL(l1_cache);	
+	M_REQUIRE_NON_NULL(l2_cache);	
+	M_REQUIRE(replace == LRU, ERR_BAD_PARAMETER, "replace is not a valid instance of cache_replace_t %c", ' ');
+	return ERR_NONE;					 
+	}

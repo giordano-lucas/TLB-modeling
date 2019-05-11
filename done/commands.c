@@ -95,9 +95,9 @@ int print_uint_64(FILE* output, const uint64_t toPrint){
 int program_print(FILE* output, const program_t* program){
 	M_REQUIRE_NON_NULL(program);
 	M_REQUIRE_NON_NULL(output);
+	M_REQUIRE_NON_NULL(program->listing);
 	
 	for(int i = 0; i< program->nb_lines; i++){
-		M_REQUIRE_NON_NULL(program->listing);
 		command_t com = program->listing[i];
 		
 		// validation of com
@@ -200,6 +200,7 @@ int program_shrink(program_t* program){
 int program_add_command(program_t* program, const command_t* command){
 	M_REQUIRE_NON_NULL(program);
 	M_REQUIRE_NON_NULL(command);
+	M_REQUIRE_NON_NULL(program->listing);
 	M_REQUIRE(command->type == INSTRUCTION || command->type == DATA, ERR_BAD_PARAMETER, "Type must be either an instruction or data", "");
 	M_REQUIRE(command->order == WRITE || command->order == READ, ERR_BAD_PARAMETER, "Order must be either a write or a read", "");
 	M_REQUIRE(!(command->order == READ && command->write_data > 0), ERR_BAD_PARAMETER, "No data size when reading, data size : %d, order : %d", command->data_size, command->order);
@@ -212,6 +213,7 @@ int program_add_command(program_t* program, const command_t* command){
 	 M_REQUIRE((command->vaddr.page_offset % command->data_size == 0), ERR_BAD_PARAMETER, "Page Offset size = %" PRIu16 " must be a multiple of data size", command->vaddr.page_offset);
 	
 	while(program->nb_lines*sizeof(command_t) >= program->allocated){
+		M_REQUIRE(program->allocated <= SIZE_MAX/2, ERR_SIZE, "Overflow realloc %c",' ');
 		M_REQUIRE(program_resize(program, 2*program->allocated) == ERR_NONE, ERR_MEM, "Could not resize %c", ' ');
 	}
 	
@@ -252,10 +254,10 @@ int readCommand(FILE* input, command_t* command, int* validCommand){
     
 	switch (buffer[0]) {
         case 'R':
-            handleRead(command, input);
+            if ((err= handleRead(command, input))!= ERR_NONE) return err;//error propagation
             break;
         case 'W':
-			handleWrite(command, input);
+			if ((err = handleWrite(command, input))!= ERR_NONE) return err; //error propagation
 			break;
 		case -1: //end of file character
 			*validCommand = 0; //if we are at the end of file : dont add a command
@@ -342,9 +344,9 @@ int isHexString(char string[], size_t start, size_t length){
 	 */
 int handleTypeSize(command_t* command, FILE* input){
 	char buffer[MAX_SIZE_BUFFER];
-	
+	int err = ERR_NONE; //used for error propagation
 	size_t s;
-	readUntilNextWhiteSpace(input, buffer, &s);
+	if ((err = readUntilNextWhiteSpace(input, buffer, &s))!= ERR_NONE) return err; // error propagation
 	M_REQUIRE(s <= 2 && s>0, ERR_BAD_PARAMETER, "SIZE OF TYPE MUST BE INF TO 2%c", ' ');
 	buffer[s] = '\0';  //sets the last char in the buffer to \0 in order to use strcmp that compares strings and returns 0 if they are equal
 	mem_access_t t;
@@ -371,7 +373,8 @@ int handleTypeSize(command_t* command, FILE* input){
 }
 
 int handle_virt_addr(char buffer[], size_t* s, FILE* input, command_t* command){
-	readUntilNextWhiteSpace(input, buffer, s);
+	int err  = ERR_NONE; // used for error propagation
+	if ((err = readUntilNextWhiteSpace(input, buffer, s)) != ERR_NONE) return err; //error propagation
 	M_REQUIRE(*s >= 4 && *s <= 20, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
 	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
 	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
@@ -385,9 +388,8 @@ int handle_virt_addr(char buffer[], size_t* s, FILE* input, command_t* command){
 	char* after_number;
 	uint64_t virt = (uint64_t) strtoull(buffer, &after_number, 16); //unsigned long long to uint64, parses the virtual address in the buffer
 	M_REQUIRE((buffer+2) != after_number, ERR_BAD_PARAMETER, "strtoull didnt manage to read a number", "" );
-	int err = ERR_NONE;
 	if((err = init_virt_addr64(&(command->vaddr), virt)) != ERR_NONE) return err;
-	
+	return ERR_NONE;
 }
 	/**
 	 * Fills the order of the command, calls handleTypeSize to fill the type and size of the command
@@ -398,15 +400,14 @@ int handle_virt_addr(char buffer[], size_t* s, FILE* input, command_t* command){
 	 * @return : Either an error code or ERR_NONE
 	 */
 int handleRead(command_t* command, FILE* input){
-	
+	int err = ERR_NONE;
 	command->order = READ;
-	handleTypeSize(command, input);  //Fills the type and size
-	
-	size_t s;
+	if ((err = handleTypeSize(command, input))!= ERR_NONE) return err;  //Fills the type and size and propagate error if needed
+	size_t s = 0;
 	char buffer[MAX_SIZE_BUFFER];
 	command->write_data = 0;  //since it is a read
 	//===================VIRT ADDR=================================
-	handle_virt_addr(buffer, &s,input, command);
+	if ((err = handle_virt_addr(buffer, &s,input, command))!= ERR_NONE) return err; //error propagation
 	return ERR_NONE;
 }
 
@@ -416,13 +417,14 @@ int handleRead(command_t* command, FILE* input){
 	 * 
 	 */
 int handleWrite(command_t* command, FILE* input){
+	int err = ERR_NONE; // used for error propagation
 	//Suppose qu'il a déjà lu le R / W
 	command->order = WRITE;
-	handleTypeSize(command, input); //fills type and size
+	if ((err = handleTypeSize(command, input))!= ERR_NONE) return err; //fills type and size and propagate error if needed 
 	char buffer[MAX_SIZE_BUFFER];
 	size_t s =0;
 	//=======================WRITE_DATA=========================
-	readUntilNextWhiteSpace(input, buffer, &s);
+	if ((err = readUntilNextWhiteSpace(input, buffer, &s))!= ERR_NONE) return err; // error propagation
 	M_REQUIRE(s >= 4 && s <= 8+3, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
 	M_REQUIRE(buffer[0] == '0', ERR_BAD_PARAMETER, "virt addr must start with 0x%c", ' ');
 	M_REQUIRE(buffer[1] == 'x', ERR_BAD_PARAMETER, "virt addr must start with 0x%c", ' ');
@@ -452,9 +454,10 @@ int handleWrite(command_t* command, FILE* input){
 int program_read(const char* filename, program_t* program){
 	M_REQUIRE_NON_NULL(filename);
 	M_REQUIRE_NON_NULL(program);
+	M_REQUIRE_NON_NULL(program->listing);
 	FILE* file= NULL;
 	file = fopen(filename, "r");
-	if (file == NULL) return ERR_IO;
+	M_REQUIRE_NON_NULL(file);
 	int err = ERR_NONE;
 	if ((err = program_init(program))!= ERR_NONE) {fclose(file); return err;}//error propagation
 	
@@ -471,7 +474,7 @@ int program_read(const char* filename, program_t* program){
 		}
 	if (ferror(file)) return ERR_IO;// check of ferror before closing the file since we may leave the loop because of ferror
 	fclose(file);
-	program_shrink(program);
+	if ((err = program_shrink(program))!= ERR_NONE) return err;// error propagation
 	return ERR_NONE;
 	}
 /**
