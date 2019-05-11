@@ -62,7 +62,7 @@ int tlb_hit(const virt_addr_t * vaddr, phy_addr_t * paddr,const tlb_entry_t * tl
 					if(tlb[value].tag == tag && tlb[value].v == 1){ //we got a hit
 						int err;
 						if((err = init_phy_addr(paddr, tlb[value].phy_page_num << PAGE_OFFSET, vaddr->page_offset)) != ERR_NONE) return err; //if we hit, initialize a paddr to the value found
-						replacement_policy->move_back((replacement_policy->ll), n); //move back the node
+						replacement_policy->move_back((replacement_policy->ll), n); //move back the node, method has no return so we cant propagate err
 						return 1; //hit
 					}
 					n = n->previous; //if no hit, iterate
@@ -84,7 +84,7 @@ int tlb_hit(const virt_addr_t * vaddr, phy_addr_t * paddr,const tlb_entry_t * tl
 int tlb_insert( uint32_t line_index,
                 const tlb_entry_t * tlb_entry,
                 tlb_entry_t * tlb){
-					M_REQUIRE_NON_NULL(tlb_entry);
+					M_REQUIRE_NON_NULL(tlb_entry); //checks if every parameter is valid
 					M_REQUIRE_NON_NULL(tlb);
 					M_REQUIRE(line_index < TLB_LINES, ERR_BAD_PARAMETER, "Index to set has to be inferior to TLBLINES, %c" ,"");
 					
@@ -109,8 +109,8 @@ int tlb_entry_init( const virt_addr_t * vaddr,
 						M_REQUIRE_NON_NULL(tlb_entry);
 						//cant propagate an error with this function since it is supposed to return a uint64 anyways
 						tlb_entry->tag = virt_addr_t_to_virtual_page_number(vaddr); //sets the tag to the virt addr
-						tlb_entry->phy_page_num = paddr->phy_page_num; //sets the page num to the paddr's page num
-						tlb_entry->v = 1; //set validity bit to one since when we init an entry we want to insert it
+						tlb_entry->phy_page_num = paddr->phy_page_num;              //sets the page num to the paddr's page num
+						tlb_entry->v = 1;                                           //set validity bit to one since when we init an entry we want to insert it
 						return ERR_NONE;
 					}
 
@@ -134,15 +134,16 @@ int tlb_search( const void * mem_space, const virt_addr_t * vaddr,  phy_addr_t *
 		M_REQUIRE_NON_NULL((replacement_policy->ll)->front);
 		
 		
-		*hit_or_miss = tlb_hit(vaddr, paddr, tlb, replacement_policy);
-		if(*hit_or_miss == 0){ //replace stuff
-			page_walk(mem_space, vaddr, paddr); //modifies paddr to be the good value
-			list_content_t head = ((replacement_policy->ll)->front)->value;
+		*hit_or_miss = tlb_hit(vaddr, paddr, tlb, replacement_policy); //checks if we have a hit or a miss
+		if(*hit_or_miss == 0){ //if we have a hit we dont do anything, if hit == 0 (just to be clearer than !hit), then we miss and update the tlb
+			int err;
+			if((err = page_walk(mem_space, vaddr, paddr)) != ERR_NONE) return err; //modifies paddr to be the good value corresponding to vadddr
+			list_content_t head = ((replacement_policy->ll)->front)->value; //creates the new head for the list
 			M_REQUIRE(0 <= head && head < TLB_LINES, ERR_BAD_PARAMETER, "Head should be in TLB , actual value : %zu" , head);
-			tlb_entry_t tlb_entr;
+			tlb_entry_t tlb_entr; //initalizes the new entry corresponding to the paddr we just computed
 			tlb_entry_init(vaddr,paddr, &tlb_entr);
-			tlb[head]  = tlb_entr;
-			replacement_policy->move_back(replacement_policy->ll, (replacement_policy->ll)->front);
+			tlb[head]  = tlb_entr; //places the entry we initialized into the head we created
+			replacement_policy->move_back(replacement_policy->ll, (replacement_policy->ll)->front); //moves back the head we created into the linked list, void method so no error propagation
 		}
 		return ERR_NONE;
 		}
