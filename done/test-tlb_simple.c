@@ -109,6 +109,7 @@ int main(int argc, char* argv[])
     /**
      * Garbage collecting
      */
+    program_free(&pgm);
     fclose(f_out);
     clear_list(&ll);
     free(mem_space);
