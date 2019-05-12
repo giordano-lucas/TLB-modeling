@@ -127,6 +127,16 @@ int cache_insert(uint16_t cache_line_index,uint8_t cache_way,const void * cache_
 				 }
 
 //=========================================================================
+
+#define cache_entry_init_generic(type, cache_entry, phy_addr, CACHE_TAG_REMAINING_BITS, mem_space, NB_LINES, WORDS_PER_LINE) {     \
+			type* entry = cache_entry;                                                                                             \
+			entry->v = 1;                                                                                                          \
+			entry->age = 0;                                                                                                        \
+			entry->tag = phy_addr >> CACHE_TAG_REMAINING_BITS;                                                                     \
+			memcpy (entry->line, mem_space + phy_addr/((sizeof(byte_t)*NB_LINES)),WORDS_PER_LINE);                                 \
+			}
+ 
+// ========================================================================
 /**
  * @brief Initialize a cache entry (write to the cache entry for the first time)
  *
@@ -144,19 +154,10 @@ int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cac
 	
 	uint32_t phy_addr = phy_to_int(paddr);
 	switch (cache_type) {
-		case L1_ICACHE : {
-			l1_icache_entry_t* entry = cache_entry;
-			entry->v = 1;
-			entry->age = 0;
-			entry->tag = phy_addr >> L1_ICACHE_TAG_REMAINING_BITS;
-			memcpy (entry->line, mem_space + phy_addr/((sizeof(byte_t)*L1_ICACHE_LINES)),L1_ICACHE_WORDS_PER_LINE);
-			}
-		break;
-		case L1_DCACHE :
-		break;
-		case L2_CACHE  :
-		break;
-		default: return ERR_BAD_PARAMETER; break;
+		case L1_ICACHE : cache_entry_init_generic(l1_icache_entry_t, cache_entry, phy_addr, L1_ICACHE_TAG_REMAINING_BITS, mem_space, L1_ICACHE_LINES, L1_ICACHE_WORDS_PER_LINE); break;
+		case L1_DCACHE : cache_entry_init_generic(l1_icache_entry_t, cache_entry, phy_addr, L1_DCACHE_TAG_REMAINING_BITS, mem_space, L1_ICACHE_LINES, L1_DCACHE_WORDS_PER_LINE); break;
+		case L2_CACHE  : cache_entry_init_generic(l1_icache_entry_t, cache_entry, phy_addr, L2_CACHE_TAG_REMAINING_BITS , mem_space, L2_CACHE_LINES , L2_CACHE_WORDS_PER_LINE) ; break;
+		default: return ERR_BAD_PARAMETER; break; //should not arrive here
 	}
 	return ERR_NONE;
 	}

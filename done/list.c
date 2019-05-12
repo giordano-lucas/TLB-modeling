@@ -55,11 +55,11 @@ void clear_list(list_t* this){
 	node_t* next = NULL;
 	while (current!= NULL){ // iterate on all nodes in the list
 		next = current->next;
+		current->next = NULL; current->previous = NULL;// just to make sure that we cannot access current and previous anymore
 		freeNode(current);
 		current = next;
 		}
-	//free(this->back);
-	this->back = NULL;
+	this->back = NULL; // make list empty
 	}
 //===========================================================
 /*
@@ -90,9 +90,9 @@ node_t* push_back(list_t* this, const list_content_t* value){
 	//create node
 	node_t* newNode = createNode(value, this->back,NULL);
 	// previous = this->back => make the last node points to the new node
-	// next = NULL; // newNode is the last node 
+	// next = NULL;          => newNode is the last node 
 	
-	if (newNode == NULL) return NULL; //error case
+	if (newNode == NULL) return NULL; //error case (propagation)
 	//update list
 	if (is_empty_list(this)) (this->front) = newNode; // if the list is empty then the front becomes the new node
 	else (this->back)->next = newNode; 	              // if the list is non empty then we update the pointer of the old last element of the list
@@ -116,7 +116,7 @@ node_t* push_front(list_t* this, const list_content_t* value){
 	// next = this->front => make the new node points to the first Node of the list
 	
 	
-	if (newNode == NULL) return NULL; //error case
+	if (newNode == NULL) return NULL; //error case (propagation)
 	//update list
 	if (is_empty_list(this)) (this->back) = newNode; // if the list is empty then the back becomes the new node
 	else (this->front)->previous = newNode;          // if the list is non empty then we update the pointer of the old first element of the list
@@ -183,7 +183,6 @@ void move_back(list_t* this, node_t* n){
 	node_t* previous = n->previous;
 	node_t* next = n->next;
 
-
 	if (next == NULL) return; // case n is the last element it does not have to be moved
 	if (previous == NULL) this->front = next; //case n is the first element 
 	else previous->next = next; //case n has a previous element
@@ -206,8 +205,7 @@ void move_back(list_t* this, node_t* n){
  * @return number of printed characters
  */
 int print_list(FILE* stream, const list_t* this){
-	M_REQUIRE_NON_NULL(stream);
-	M_REQUIRE_NON_NULL(this);
+	if (stream == NULL || this == NULL) return 0; //sanity checks
 	
 	int nbChar = 0;
 	nbChar += fprintf(stream,"(");
@@ -227,8 +225,7 @@ int print_list(FILE* stream, const list_t* this){
  * @return number of printed characters
  */
 int print_reverse_list(FILE* stream, const list_t* this){
-	M_REQUIRE_NON_NULL(stream);
-	M_REQUIRE_NON_NULL(this);
+	if (stream == NULL || this == NULL) return 0; //sanity checks
 	
 	int nbChar = 0; // the number of printed characters
 	nbChar += fprintf(stream,"(");
