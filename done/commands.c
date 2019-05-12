@@ -177,7 +177,6 @@ int program_shrink(program_t* program){
 				return ERR_MEM;
 		}
 		*prog = copy;
-		copy.listing = NULL;
 		return ERR_NONE;
 	}
 	
@@ -211,7 +210,7 @@ int program_add_command(program_t* program, const command_t* command){
 	 M_REQUIRE(!(command->type == INSTRUCTION && command->order == WRITE), ERR_BAD_PARAMETER, "Cannot write with an instruction%c", ' ');
 	//invalid  virtual addr 
 	 M_REQUIRE((command->vaddr.page_offset % command->data_size == 0), ERR_BAD_PARAMETER, "Page Offset size = %" PRIu16 " must be a multiple of data size", command->vaddr.page_offset);
-	M_REQUIRE(program->nb_lines < SIZE_MAX/sizeof(command_t), ERR_SIZE, "nb_lines is too big to reallocate %c",' ');
+	 M_REQUIRE(program->nb_lines < SIZE_MAX/sizeof(command_t), ERR_SIZE, "nb_lines is too big to reallocate %c",' ');
 	while(program->nb_lines*sizeof(command_t) >= program->allocated){
 		
 		M_REQUIRE(program_resize(program, 2*(program->allocated/sizeof(command_t))) == ERR_NONE, ERR_MEM, "Could not resize %c", ' ');
