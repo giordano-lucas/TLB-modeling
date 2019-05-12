@@ -145,12 +145,12 @@ int program_shrink(program_t* program){
 	if(program->nb_lines > 0){
 		while(program->allocated/sizeof(command_t) > program->nb_lines){
 			// resize to nb_lines
-			M_REQUIRE((program_resize(program, program->nb_lines*sizeof(command_t)) == ERR_NONE), ERR_MEM, "Could not resize %c", '\0');
+			M_REQUIRE((program_resize(program, program->nb_lines) == ERR_NONE), ERR_MEM, "Could not resize %c", '\0');
 			}
 	}
 	else{
 		// if nb_lines == 0 reset the lines to 10
-		M_REQUIRE(program_resize(program, START_COMMANDS_ALLOCATED*sizeof(command_t)) == ERR_NONE, ERR_MEM, "Could not resize %c", '\0');
+		M_REQUIRE(program_resize(program, START_COMMANDS_ALLOCATED) == ERR_NONE, ERR_MEM, "Could not resize %c", '\0');
 	}
 	return ERR_NONE;
 	}	
@@ -167,12 +167,13 @@ int program_shrink(program_t* program){
 	int program_resize(program_t* prog, size_t newSize){
 		
 		M_REQUIRE_NON_NULL(prog);
-		//M_REQUIRE_NON_NULL(prog->listing);
+		M_REQUIRE_NON_NULL(prog->listing);
+
 		program_t copy = *prog;
-		copy.allocated = newSize;
+		copy.allocated = newSize*sizeof(command_t);
 		
 		// check overflow multiplication and test reallocation
-		if(newSize > SIZE_MAX || (copy.listing = realloc(copy.listing, copy.allocated)) == NULL ){
+		if(newSize > SIZE_MAX/sizeof(command_t) || (copy.listing = realloc(copy.listing, copy.allocated)) == NULL ){
 				return ERR_MEM;
 		}
 		*prog = copy;
@@ -210,10 +211,10 @@ int program_add_command(program_t* program, const command_t* command){
 	 M_REQUIRE(!(command->type == INSTRUCTION && command->order == WRITE), ERR_BAD_PARAMETER, "Cannot write with an instruction%c", ' ');
 	//invalid  virtual addr 
 	 M_REQUIRE((command->vaddr.page_offset % command->data_size == 0), ERR_BAD_PARAMETER, "Page Offset size = %" PRIu16 " must be a multiple of data size", command->vaddr.page_offset);
-	
+	M_REQUIRE(program->nb_lines < SIZE_MAX/sizeof(command_t), ERR_SIZE, "nb_lines is too big to reallocate %c",' ');
 	while(program->nb_lines*sizeof(command_t) >= program->allocated){
-		M_REQUIRE(program->allocated <= SIZE_MAX/2, ERR_SIZE, "Overflow realloc %c",' ');
-		M_REQUIRE(program_resize(program, 2*program->allocated) == ERR_NONE, ERR_MEM, "Could not resize %c", ' ');
+		
+		M_REQUIRE(program_resize(program, 2*(program->allocated/sizeof(command_t))) == ERR_NONE, ERR_MEM, "Could not resize %c", ' ');
 	}
 	
 	program->listing[program->nb_lines] = *command;
@@ -453,7 +454,7 @@ int handleWrite(command_t* command, FILE* input){
 int program_read(const char* filename, program_t* program){
 	M_REQUIRE_NON_NULL(filename);
 	M_REQUIRE_NON_NULL(program);
-	
+
 	FILE* file= NULL;
 	file = fopen(filename, "r");
 	M_REQUIRE_NON_NULL(file);

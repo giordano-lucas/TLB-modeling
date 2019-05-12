@@ -102,6 +102,6 @@ int main(int argc, char *argv[])
         error(argv[0], "problem initializing memory from provided file.");
         return 1;
     }
-
+	free(mem_space);
     return 0;
 }
