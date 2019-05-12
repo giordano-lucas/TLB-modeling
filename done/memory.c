@@ -290,6 +290,10 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 			string[s] = '\0'; //add a 0 at the end to make sure strtoull gets the right result
 			char* afterNumber;
 			virtaddr = strtoull(string, &afterNumber, 16); //convert the virtual address in char* to a uint64
+			if(string[0] == EOF){
+				fclose(f);
+				return ERR_NONE;
+			}
 			M_REQUIRE(string != afterNumber || handle_exit_error(f,memory), ERR_BAD_PARAMETER, "strtoull didnt manage to read a number", "" ); //error check of strtoull
 			string[s] = ' '; //resets the char at the end of the buffer
 		}

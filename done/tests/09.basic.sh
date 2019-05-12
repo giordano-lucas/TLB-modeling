@@ -35,8 +35,8 @@ check_output_with_file() {
 
 # ======================================================================
 # test test-tlb_simple on a few provided files
-check_output_with_file test-tlb_hrchy commands02.txt memory-dump-01.mem output/tlb-hrchy-01-out.txt
 printf "Test %1d (test-tlb_hrchy 1): " $((++test))
+check_output_with_file test-tlb_hrchy commands02.txt memory-dump-01.mem output/tlb-hrchy-01-out.txt
 
 # ======================================================================
 echo "SUCCESS"
