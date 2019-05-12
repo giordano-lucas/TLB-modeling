@@ -55,7 +55,7 @@ void clear_list(list_t* this){
 	node_t* next = NULL;
 	while (current!= NULL){ // iterate on all nodes in the list
 		next = current->next;
-		current->next = NULL; current->previous = NULL;// just to make sure that we cannot access current and previous anymore
+		current->next = NULL; current->previous = NULL;// just to make sure that nobody can access current and previous anymore
 		freeNode(current);
 		current = next;
 		}

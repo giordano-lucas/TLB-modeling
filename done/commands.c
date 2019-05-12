@@ -167,7 +167,7 @@ int program_shrink(program_t* program){
 	int program_resize(program_t* prog, size_t newSize){
 		
 		M_REQUIRE_NON_NULL(prog);
-		M_REQUIRE_NON_NULL(prog->listing);
+		//M_REQUIRE_NON_NULL(prog->listing);
 		program_t copy = *prog;
 		copy.allocated = newSize;
 		
@@ -175,9 +175,8 @@ int program_shrink(program_t* program){
 		if(newSize > SIZE_MAX || (copy.listing = realloc(copy.listing, copy.allocated)) == NULL ){
 				return ERR_MEM;
 		}
-		
 		*prog = copy;
-		
+		copy.listing = NULL;
 		return ERR_NONE;
 	}
 	
@@ -454,7 +453,7 @@ int handleWrite(command_t* command, FILE* input){
 int program_read(const char* filename, program_t* program){
 	M_REQUIRE_NON_NULL(filename);
 	M_REQUIRE_NON_NULL(program);
-	M_REQUIRE_NON_NULL(program->listing);
+	
 	FILE* file= NULL;
 	file = fopen(filename, "r");
 	M_REQUIRE_NON_NULL(file);
