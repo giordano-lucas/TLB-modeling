@@ -49,7 +49,7 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
         case L1_ITLB : flush_generic(l1_itlb_entry_t, tlb, L1_ITLB_LINES); break;
         case L1_DTLB : flush_generic(l1_dtlb_entry_t, tlb, L1_DTLB_LINES); break;
         case L2_TLB  : flush_generic(l2_tlb_entry_t , tlb, L2_TLB_LINES ); break;
-        default      : return ERR_BAD_PARAMETER; break;
+        default      : return ERR_BAD_PARAMETER; break; //not needed because of sanity checks but this is left for the compiler 
     }
 	//should not arrive here since each switch case contains a return (see macro expansion)
 	}
