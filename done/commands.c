@@ -439,7 +439,7 @@ int handleWrite(command_t* command, FILE* input){
 	M_REQUIRE((buffer+1) != after_number, ERR_BAD_PARAMETER, "strtoull didnt manage to read a number", "" );
 	
 	//=======================VIRT ADDR==========================
-	handle_virt_addr(buffer, &s,input, command);
+	if((err = handle_virt_addr(buffer, &s,input, command)) != ERR_NONE) return err;
 	return ERR_NONE;
 }
 /**
