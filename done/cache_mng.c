@@ -4,6 +4,7 @@
 #include "cache_mng.h"
 #include "lru.h"
 #include <stdbool.h>
+#include "addr_mng.h"
 //=========================================================================
 //=========================================================================
 
@@ -328,6 +329,8 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 	M_REQUIRE_NON_NULL(word);
 	M_REQUIRE(replace == LRU, ERR_BAD_PARAMETER, "replace is not a valid instance of cache_replace_t %c", ' ');
 	M_REQUIRE(access == INSTRUCTION || access == DATA, ERR_BAD_PARAMETER, "access is not a valid instance of mem_access_t %c", ' ');
+	M_REQUIRE((paddr->page_offset % sizeof(word_t)) == 0, ERR_BAD_PARAMETER, "paddr should be word aligned for cache_read  %c",' ');
+	
 	void* cache = NULL; // to use macro defined in cache_h
 	int err = ERR_NONE; // used to propagate errors
 	uint32_t phy_addr = phy_to_int(paddr);
@@ -340,8 +343,8 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 	if  (hit_way != HIT_WAY_MISS){
 		//found it
 		cache = l1_cache;
-		if (access == INSTRUCTION) *word = cache_line(l1_icache_entry_t, L1_ICACHE_WAYS, hit_index, hit_way)[paddr->page_offset%L1_ICACHE_WORDS_PER_LINE];
-		else                       *word = cache_line(l1_dcache_entry_t, L1_DCACHE_WAYS, hit_index, hit_way)[paddr->page_offset%L1_DCACHE_WORDS_PER_LINE];
+		if (access == INSTRUCTION) *word = cache_line(l1_icache_entry_t, L1_ICACHE_WAYS, hit_index, hit_way)[(phy_addr/sizeof(word_t))%L1_ICACHE_WORDS_PER_LINE];
+		else                       *word = cache_line(l1_dcache_entry_t, L1_DCACHE_WAYS, hit_index, hit_way)[(phy_addr/sizeof(word_t))%L1_DCACHE_WORDS_PER_LINE];
 		}
 	else{
 		//not found in l1 => search in l2
@@ -350,7 +353,7 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 			cache = l2_cache;
 			if ((err = move_entry_to_level1(access,l1_cache, l2_cache, cache_entry(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way), phy_addr))!= ERR_NONE){
 				return err;}//error propagation
-			*word = cache_line(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way)[paddr->page_offset%L2_CACHE_WORDS_PER_LINE];
+			*word = cache_line(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way)[phy_addr%L2_CACHE_WORDS_PER_LINE];
 			}
 		else {
 			//not foud in l2
@@ -387,6 +390,7 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
  * @param replace replacement policy
  * @return  error code
  */
+ #define MASK_BYTE 0b1111
 int cache_read_byte(const void * mem_space, phy_addr_t * p_paddr, mem_access_t access,
 					void * l1_cache,void * l2_cache,uint8_t * p_byte, cache_replace_t replace){
 	M_REQUIRE_NON_NULL(mem_space);
@@ -396,7 +400,15 @@ int cache_read_byte(const void * mem_space, phy_addr_t * p_paddr, mem_access_t a
 	M_REQUIRE_NON_NULL(p_byte);	
 	M_REQUIRE(replace == LRU, ERR_BAD_PARAMETER, "replace is not a valid instance of cache_replace_t %c", ' ');
 	M_REQUIRE(access == INSTRUCTION || access == DATA, ERR_BAD_PARAMETER, "access is not a valid instance of mem_access_t %c", ' ');
-						
+	int err = ERR_NONE; //used for error propagation
+	
+	word_t word = 0;
+	int byte_index = p_paddr->page_offset % sizeof(word_t);
+	phy_addr_t paddr;
+	if (( err = init_phy_addr(&paddr, p_paddr->phy_page_num << PAGE_OFFSET, p_paddr->page_offset - byte_index))!= ERR_NONE) return err;
+	if ((err = cache_read(mem_space,&paddr, access,l1_cache, l2_cache, &word, replace)) != ERR_NONE) return err;//error propagation
+	*p_byte = (word>>byte_index)&MASK_BYTE;//final affectation
+	
 	return ERR_NONE;
 }
 
