@@ -124,7 +124,7 @@ int cache_insert(uint16_t cache_line_index,uint8_t cache_way,const void * cache_
          default        : return ERR_BAD_PARAMETER; break;
     }
 					
-				 }
+}
 
 //=========================================================================
 
