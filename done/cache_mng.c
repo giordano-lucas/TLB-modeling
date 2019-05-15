@@ -172,7 +172,7 @@ int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cac
 	entry->v = 1;                                                                            \
 	entry->age = 0;                                                                          \
 	entry->tag = phy_addr >> TAG_REMAINING_BITS;                                             \
-	memcpy (entry->line, l2_entry->line,L2_CACHE_WORDS_PER_LINE);       
+	memcpy (entry->line, l2_entry->line,L2_CACHE_WORDS_PER_LINE*sizeof(word_t));       
 
 void cast_cache_line_l2_to_l1(mem_access_t access, void* l1_entry, l2_cache_entry_t* l2_entry, uint32_t phy_addr){
 	switch(access){
@@ -260,7 +260,7 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
 		void* evicted_entry = evict(cache_type, l1_cache, line_index); //eviction
 		l2_cache_entry_t l2_entry;
 		l2_entry.v = 1; l2_entry.age = 0; l2_entry.tag = phy_addr >> L2_CACHE_TAG_REMAINING_BITS;
-		memcpy(l2_entry.line, cast_l1_entry(access,evicted_entry)->line, L2_CACHE_WORDS_PER_LINE); // copy content of l1 entry to l2 entry
+		memcpy(l2_entry.line, cast_l1_entry(access,evicted_entry)->line, L2_CACHE_WORDS_PER_LINE*sizeof(word_t)); // copy content of l1 entry to l2 entry
 		// move entry to level 2
 		if ((err = insert_level2((l2_cache_entry_t*)l2_cache, &l2_entry, phy_addr))!= ERR_NONE) return err; //error propagation
 		}
@@ -338,7 +338,7 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 	uint8_t hit_way;
 	uint16_t hit_index;
 	err = (access == INSTRUCTION)? cache_hit(mem_space, l1_cache, paddr,&p_line,&hit_way,&hit_index, L1_ICACHE):
-									   cache_hit(mem_space, l1_cache, paddr,&p_line,&hit_way,&hit_index, L1_DCACHE);
+								   cache_hit(mem_space, l1_cache, paddr,&p_line,&hit_way,&hit_index, L1_DCACHE);
 	if (err != ERR_NONE){return err;} //error handling
 	if  (hit_way != HIT_WAY_MISS){
 		//found it
