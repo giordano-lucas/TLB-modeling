@@ -46,6 +46,38 @@ int cache_flush(void *cache, cache_t cache_type){
 	
 	return ERR_NONE;
 	}
+/**
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+ */
+#define cache_hit_generic(type, NB_LINES, WORDS_PER_LINE, REMAINING_BITS, WAYS) \
+	uint16_t line_index = (phy_addr/(sizeof(word_t)*WORDS_PER_LINE))%NB_LINES;\
+	uint32_t tag = phy_addr >> REMAINING_BITS;\
+	foreach_way(way, WAYS) {\
+		if (!cache_valid(type, WAYS, line_index, way) ){/* found a place*/ \
+			LRU_age_increase(type, WAYS, line_index, way);/*update*/ \
+			return ERR_NONE;\
+			}\
+		else if (cache_tag(type, WAYS, line_index, way) == tag){/*hit*/ \
+			*p_line = cache_line(type, WAYS, line_index, way); \
+			*hit_way = way; \
+			*hit_index = line_index; \
+			LRU_age_update(type, WAYS, line_index, way);/*update ages*/ \
+			return ERR_NONE;\
+		}\
+	}\
+	/*if we arrive here no entry has been found*/\
+	return ERR_NONE;
 
 //=========================================================================
 /**
@@ -71,30 +103,19 @@ int cache_hit (const void * mem_space, void * cache, phy_addr_t * paddr, const u
 	M_REQUIRE_NON_NULL(p_line);
 	M_REQUIRE_NON_NULL(hit_way);
 	M_REQUIRE_NON_NULL(hit_index);
-	
-	uint32_t phy_addr = phy_to_int(paddr);
-	uint16_t line_index = (phy_addr>>L1_ICACHE_WORDS_PER_LINE)%L1_ICACHE_LINE;
-	uint32_t tag = phy_addr >> L1_ICACHE_TAG_REMAINING_BITS;
-	// initialise return values
+	M_REQUIRE(L1_ICACHE <= cache_type && cache_type <= L2_CACHE, ERR_BAD_PARAMETER, "%d is not a valid cache_type \n", cache_type);
 	*hit_way = HIT_WAY_MISS;
 	*hit_index = HIT_INDEX_MISS;
-
-
-	foreach_way(way, L1_ICACHE_WAYS) {
-		if (!cache_valid(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) ){//found a place
-			LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);//update ages
-			return ERR_NONE;
-			}
-		else if (cache_tag(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) == tag){//hit
-			*p_line = cache_line(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);
-			*hit_way = way;
-			*hit_index = line_index;
-			LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);//update ages
-			return ERR_NONE;
-		}
+	uint32_t phy_addr = phy_to_int(paddr);
+	switch(cache_type){
+		case L1_ICACHE:{ cache_hit_generic(l1_icache_entry_t, L1_ICACHE_LINES, L1_ICACHE_WORDS_PER_LINE, L1_ICACHE_TAG_REMAINING_BITS, L1_ICACHE_WAYS);
+		break;}
+		case L1_DCACHE:{ cache_hit_generic(l1_dcache_entry_t, L1_DCACHE_LINES, L1_DCACHE_WORDS_PER_LINE, L1_DCACHE_TAG_REMAINING_BITS, L1_DCACHE_WAYS);
+		break;}
+		case L2_CACHE:{  cache_hit_generic(l2_cache_entry_t, L2_CACHE_LINES, L2_CACHE_WORDS_PER_LINE, L2_CACHE_TAG_REMAINING_BITS, L2_CACHE_WAYS);
+		break;}
+		default: return ERR_BAD_PARAMETER;
 	}
-	//if we arrive here no entry has been found
-	return ERR_NONE;
 }
 #define init_cache_entry(TYPE, LINE, AGE,VALID)
 //=========================================================================
@@ -113,15 +134,21 @@ int cache_insert(uint16_t cache_line_index,uint8_t cache_way,const void * cache_
                  void * cache, cache_t cache_type){
 	M_REQUIRE_NON_NULL(cache);
 	M_REQUIRE_NON_NULL(cache_line_in);
-	word_t line = *((word_t*)cache_line_in);
+	M_REQUIRE(L1_ICACHE <= cache_type && cache_type <= L2_CACHE, ERR_BAD_PARAMETER, "cache type is not a valid value : %d", cache_type);
 	
 	switch (cache_type) {
-         case L1_ICACHE : 
-        // cache_line(L1_ICACHE, L1_ICACHE_WAYS, cache_line_index, cache_way) = line;
+         case L1_ICACHE : {
+		 M_REQUIRE(cache_way < L1_ICACHE_WAYS, ERR_BAD_PARAMETER, "cache way has to be inferior to L1_ICACHE_WAYS", ' ');
+		 *cache_entry(l1_icache_entry_t,L1_ICACHE_WAYS, cache_line_index, cache_way ) = *(l1_icache_entry_t*)cache_line_in;
+         return ERR_NONE;}
+         case L1_DCACHE :
+          M_REQUIRE(cache_way < L1_DCACHE_WAYS, ERR_BAD_PARAMETER, "cache way has to be inferior to L1_DCACHE_WAYS", ' ');
+         *cache_entry(l1_dcache_entry_t,L1_DCACHE_WAYS, cache_line_index, cache_way ) = *(l1_dcache_entry_t*)cache_line_in;
          return ERR_NONE;
-         break;
-         case L1_DCACHE : return ERR_NONE;
-         case L2_CACHE  : return ERR_NONE;
+         case L2_CACHE  :
+          M_REQUIRE(cache_way < L2_CACHE_WAYS, ERR_BAD_PARAMETER, "cache way has to be inferior to L2_CACHE_WAYS", ' ');
+         *cache_entry(l2_cache_entry_t,L2_CACHE_WAYS, cache_line_index, cache_way ) = *(l2_cache_entry_t*)cache_line_in;
+         return ERR_NONE;
          default        : return ERR_BAD_PARAMETER; break;
     }
 					
@@ -129,12 +156,13 @@ int cache_insert(uint16_t cache_line_index,uint8_t cache_way,const void * cache_
 
 //=========================================================================
 
-#define cache_entry_init_generic(type, cache_entry, phy_addr, CACHE_TAG_REMAINING_BITS, mem_space, NB_LINES, WORDS_PER_LINE) {     \
+#define cache_entry_init_generic(type, cache_entry, phy_addr, CACHE_TAG_REMAINING_BITS, mem_space, WORDS_PER_LINE) {     \
 			type* entry = cache_entry;                                                                                             \
 			entry->v = 1;                                                                                                          \
 			entry->age = 0;                                                                                                        \
-			entry->tag = phy_addr >> CACHE_TAG_REMAINING_BITS;                                                                     \
-			memcpy (entry->line, mem_space + phy_addr/((sizeof(byte_t)*NB_LINES)),WORDS_PER_LINE);                                 \
+			entry->tag = phy_addr >> CACHE_TAG_REMAINING_BITS;     																	\
+			uint32_t addr = ((phy_addr/sizeof(word_t))/WORDS_PER_LINE)*WORDS_PER_LINE  ;            \
+			memcpy (entry->line, (word_t*)(mem_space) + addr,WORDS_PER_LINE*sizeof(word_t));                                 \
 			}
  
 // ========================================================================
@@ -155,9 +183,9 @@ int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cac
 	
 	uint32_t phy_addr = phy_to_int(paddr);
 	switch (cache_type) {
-		case L1_ICACHE : cache_entry_init_generic(l1_icache_entry_t, cache_entry, phy_addr, L1_ICACHE_TAG_REMAINING_BITS, mem_space, L1_ICACHE_LINES, L1_ICACHE_WORDS_PER_LINE); break;
-		case L1_DCACHE : cache_entry_init_generic(l1_icache_entry_t, cache_entry, phy_addr, L1_DCACHE_TAG_REMAINING_BITS, mem_space, L1_ICACHE_LINES, L1_DCACHE_WORDS_PER_LINE); break;
-		case L2_CACHE  : cache_entry_init_generic(l1_icache_entry_t, cache_entry, phy_addr, L2_CACHE_TAG_REMAINING_BITS , mem_space, L2_CACHE_LINES , L2_CACHE_WORDS_PER_LINE) ; break;
+		case L1_ICACHE : cache_entry_init_generic(l1_icache_entry_t, cache_entry, phy_addr, L1_ICACHE_TAG_REMAINING_BITS, mem_space, L1_ICACHE_WORDS_PER_LINE) ; break;
+		case L1_DCACHE : cache_entry_init_generic(l1_dcache_entry_t, cache_entry, phy_addr, L1_DCACHE_TAG_REMAINING_BITS, mem_space, L1_DCACHE_WORDS_PER_LINE) ; break;
+		case L2_CACHE  : cache_entry_init_generic(l2_cache_entry_t,  cache_entry, phy_addr, L2_CACHE_TAG_REMAINING_BITS , mem_space , L2_CACHE_WORDS_PER_LINE) ; break;
 		default: return ERR_BAD_PARAMETER; break; //should not arrive here
 	}
 	return ERR_NONE;
