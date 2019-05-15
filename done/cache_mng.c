@@ -67,6 +67,7 @@ int cache_flush(void *cache, cache_t cache_type){
 int cache_hit (const void * mem_space, void * cache, phy_addr_t * paddr, const uint32_t ** p_line, uint8_t *hit_way, uint16_t *hit_index, cache_t cache_type){
 	M_REQUIRE_NON_NULL(mem_space);
 	M_REQUIRE_NON_NULL(cache);
+	M_REQUIRE_NON_NULL(paddr);
 	M_REQUIRE_NON_NULL(p_line);
 	M_REQUIRE_NON_NULL(hit_way);
 	M_REQUIRE_NON_NULL(hit_index);

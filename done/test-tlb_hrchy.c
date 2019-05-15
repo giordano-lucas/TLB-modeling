@@ -129,7 +129,7 @@ int main(int argc, char* argv[])
      */
     fclose(f_out);
     free(mem_space);
-
+	program_free(&pgm);
     return EXIT_SUCCESS;
 }
 

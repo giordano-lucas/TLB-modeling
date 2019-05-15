@@ -25,7 +25,7 @@
  * it first test the overflow of sizeof(type)*NB_LINE
  */
 #define flush_generic(type, tlb, NB_LINES)                                                               \
-	 M_REQUIRE((NB_LINES < SIZE_MAX/sizeof(type)), ERR_SIZE, "Could not memset : overflow, %c", " ");    \
+	 M_REQUIRE((NB_LINES <= SIZE_MAX/sizeof(type)), ERR_SIZE, "Could not memset : overflow, %c", " ");    \
 	 memset(tlb , 0, sizeof(type)*NB_LINES);                                                             \
 	 return ERR_NONE;                                                                                    
 //================================================================================================================
@@ -49,7 +49,7 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
         case L1_ITLB : flush_generic(l1_itlb_entry_t, tlb, L1_ITLB_LINES); break;
         case L1_DTLB : flush_generic(l1_dtlb_entry_t, tlb, L1_DTLB_LINES); break;
         case L2_TLB  : flush_generic(l2_tlb_entry_t , tlb, L2_TLB_LINES ); break;
-        default      : return ERR_BAD_PARAMETER; break;
+        default      : return ERR_BAD_PARAMETER; break; //not needed because of sanity checks but this is left for the compiler 
     }
 	//should not arrive here since each switch case contains a return (see macro expansion)
 	}
@@ -205,7 +205,6 @@ int tlb_entry_init( const virt_addr_t * vaddr, const phy_addr_t * paddr, void * 
 	M_REQUIRE_NON_NULL(tlb_entry);
 	// check that tlb_type is a valid instance of tlb_t
 	M_REQUIRE(L1_ITLB <= tlb_type && tlb_type <= L2_TLB, ERR_BAD_PARAMETER, "%d is not a valid tlb_type \n", tlb_type);
-
 	// for each tlb type call the generic macro defined above
 	switch (tlb_type){
 		case L1_ITLB : { init_generic(l1_itlb_entry_t, tlb_entry, L1_ITLB_LINES_BITS, vaddr, paddr);} break;
@@ -249,7 +248,7 @@ int tlb_entry_init( const virt_addr_t * vaddr, const phy_addr_t * paddr, void * 
 	int err;\
 	if((err = tlb_entry_init(vaddr, paddr, &entry,TLB_TYPE)) != ERR_NONE) return err; \
 	uint8_t line = virt_addr_t_to_virtual_page_number(vaddr) % tlb_lines;\
-	if((err = tlb_insert(line, &entry, tlb, TLB_TYPE)) != ERR_NONE) return err;\
+	if((err = tlb_insert(line, &entry, tlb, TLB_TYPE)) != ERR_NONE) return err;
 
 //=========================================================================
 /**
@@ -276,7 +275,6 @@ int tlb_search( const void * mem_space,const virt_addr_t * vaddr, phy_addr_t * p
 		M_REQUIRE_NON_NULL(l2_tlb);
 		M_REQUIRE_NON_NULL(hit_or_miss);
 		M_REQUIRE(access == INSTRUCTION || access == DATA, ERR_BAD_PARAMETER, "access is not a valid instance of mem_access_t %c", ' ');
-		
 		int err = ERR_NONE; // err used to propagate errors
 		*hit_or_miss = (access == INSTRUCTION)? tlb_hit(vaddr, paddr, l1_itlb, L1_ITLB):tlb_hit(vaddr, paddr, l1_dtlb, L1_DTLB);
 		if(*hit_or_miss == HIT) return ERR_NONE; //if found in lvl 1, return
