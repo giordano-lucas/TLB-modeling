@@ -287,16 +287,25 @@ int insert_level2(l2_cache_entry_t* cache, l2_cache_entry_t* entry, uint32_t phy
 	//find place
 	int cache_way = find_empty_slot(L2_CACHE, cache, line_index);
 	if (cache_way != NOTHING_FOUND){ // there is some place in l2 cache
-		//if ((err = cache_insert(line_index,cache_way,entry->line,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
+		//if ((err = cache_insert(line_index,cache_way,entry,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
 		//LRU_age_increase(l2_cache_entry_t, L2_CACHE_WAYS, line_index, cache_way);		//update ages
 		}
 	else { // there is no empty slot in l2 cache
-		evict(L2_CACHE, cache, line_index); //eviction
-		//if ((err = cache_insert(line_index,cache_way,entry->line,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
+		l2_cache_entry_t* evicted = evict(L2_CACHE, cache, line_index); //eviction
+		entry->age = evicted->age;
+		//if ((err = cache_insert(line_index,cache_way,entry,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
 		//LRU_age_update(l2_cache_entry_t, L2_CACHE_WAYS, line_index, cache_way); //update ages
 		}
+<<<<<<< HEAD
 	if ((err = cache_insert(line_index,cache_way,entry->line,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
 	modify_ages(L2_CACHE, cache, cache_way, line_index);
+||||||| merged common ancestors
+	if ((err = cache_insert(line_index,cache_way,entry->line,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
+	if (cache_way != NOTHING_FOUND) LRU_age_increase(l2_cache_entry_t, L2_CACHE_WAYS, line_index, cache_way);//update ages
+=======
+	if ((err = cache_insert(line_index,cache_way,entry,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
+	modify_ages(L2_CACHE, cache, cache_way, line_index);
+>>>>>>> d1579bacbc6a150c5e810e452f792ab4b1267760
 	return ERR_NONE;
 	}
 
@@ -347,7 +356,9 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
 		memcpy(l2_entry.line, cast_l1_entry(access,evicted_entry)->line, L2_CACHE_WORDS_PER_LINE*sizeof(word_t)); // copy content of l1 entry to l2 entry
 		// move entry to level 2
 		if ((err = insert_level2((l2_cache_entry_t*)l2_cache, &l2_entry, phy_addr))!= ERR_NONE) return err; //error propagation
+		cast_l1_entry(access,entry)->age = cast_l1_entry(access, evicted_entry)->age; //prepare for modifying ages policy 
 		}
+		
 	//insert in l1 cache (here we are sure that there is at least an empt way)
 	
 	
