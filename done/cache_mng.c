@@ -1,3 +1,22 @@
+Skip to content
+ 
+Search or jump to…
+
+Pull requests
+Issues
+Marketplace
+Explore
+ 
+@giordano3102lucas 
+1
+0 0 projprogsys-epfl/pps19-projet-mathilde Private
+ Code  Issues 0  Pull requests 0  Projects 0  Wiki  Insights
+pps19-projet-mathilde/done/cache_mng.c
+@boesingerl boesingerl modified cache mng
+b5cf87d 31 minutes ago
+@giordano3102lucas @boesingerl
+538 lines (477 sloc)  25.5 KB
+    
 
 
 #include "error.h"
@@ -250,6 +269,16 @@ void* evict(cache_t cache_type, void* cache, uint16_t line_index) {
 		default: return NULL;break;
 		}
 	}
+void modify_ages(cache_t cache_type,void *cache, uint8_t way, uint16_t line_index){
+	if (way == NOTHING_FOUND) return;//not a cold start and not a hit
+	switch (cache_type){
+		case L1_ICACHE: if (way == NOTHING_FOUND) {LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);}break;
+		case L1_DCACHE: if (way == NOTHING_FOUND) {LRU_age_update(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way);}break;
+		case L2_CACHE : if (way == NOTHING_FOUND) {LRU_age_update(l2_cache_entry_t, L2_CACHE_WAYS, line_index, way  ) }else {LRU_age_increase(l2_cache_entry_t, L2_CACHE_WAYS, line_index, way  );}break;
+		 
+		default         : fprintf(stderr, "wrong instance of mem access at modify ages"); break;
+		}
+	}
 
 
 int insert_level2(l2_cache_entry_t* cache, l2_cache_entry_t* entry, uint32_t phy_addr){
@@ -267,20 +296,12 @@ int insert_level2(l2_cache_entry_t* cache, l2_cache_entry_t* entry, uint32_t phy
 		//LRU_age_update(l2_cache_entry_t, L2_CACHE_WAYS, line_index, cache_way); //update ages
 		}
 	if ((err = cache_insert(line_index,cache_way,entry->line,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
-	if (cache_way != NOTHING_FOUND) LRU_age_increase(l2_cache_entry_t, L2_CACHE_WAYS, line_index, cache_way);//update ages
+	modify_ages(L2_CACHE, cache, cache_way, line_index);
 	return ERR_NONE;
 	}
 
 #define cast_l1_entry(access, entry) ( ((access) == INSTRUCTION)? ((l1_icache_entry_t*)(entry)): ((l1_icache_entry_t*)(entry)))
 
-void modify_ages_level1(mem_access_t access,void *cache, uint8_t way, uint16_t line_index){
-	if (way == NOTHING_FOUND) return;//not a cold start and not a hit
-	switch (access){
-		case INSTRUCTION: if (way == NOTHING_FOUND) {LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);}break;
-		case DATA       : if (way == NOTHING_FOUND) {LRU_age_update(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way);}break;
-		default         : fprintf(stderr, "wrong instance of mem access at modify ages"); break;
-		}
-	}
 
 // --------------------------------------------------
 #define cache_cast_any(TYPE, CACHE) ((TYPE *)CACHE)
@@ -330,29 +351,20 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
 	//insert in l1 cache (here we are sure that there is at least an empt way)
 	
 	
-    if ((err = cache_insert(line_index,cache_way,cast_l1_entry(access, entry)->line, l1_cache,cache_type))!= ERR_NONE) return err; // error propagation
+    if ((err = cache_insert(line_index,cache_way, entry, l1_cache,cache_type))!= ERR_NONE) return err; // error propagation
    			
-	modify_ages_level1(access,l1_cache, cache_way,line_index);//update ages
+	modify_ages(cache_type,l1_cache, cache_way,line_index);//update ages
 	
 	return ERR_NONE;
 	} 
 
 int move_entry_to_level1(mem_access_t access,void * l1_cache, void * l2_cache, l2_cache_entry_t* l2_entry, uint32_t phy_addr){
-	cache_t cache_type = 0;
-	uint16_t line_index = 0;
+	
 	int err = ERR_NONE;
 	void* l1_entry = NULL; 
 	switch (access){
-		case INSTRUCTION: {
-			cache_type = L1_ICACHE;
-			line_index = extract_line_index(phy_addr, L1_ICACHE_WORDS_PER_LINE, L1_ICACHE_LINES);
-			l1_icache_entry_t entry; l1_entry = &entry;
-			}break;
-		case DATA       : {
-			cache_type = L1_DCACHE;
-			line_index = extract_line_index(phy_addr, L1_DCACHE_WORDS_PER_LINE, L1_DCACHE_LINES);
-			l1_dcache_entry_t entry; l1_entry = &entry;
-			}break;
+		case INSTRUCTION: { l1_icache_entry_t entry; l1_entry = &entry;}break;
+		case DATA       : { l1_dcache_entry_t entry; l1_entry = &entry;}break;
 		default: return ERR_BAD_PARAMETER;
 		}
 	cast_cache_line_l2_to_l1(access,l1_entry,l2_entry,phy_addr);
@@ -440,7 +452,7 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 				if ((err = insert_level1(access,l1_cache, l2_cache, entry,phy_addr))!= ERR_NONE) return err; //error propagation
 				*word = cache_entry.line[(phy_addr/sizeof(word_t))%L1_DCACHE_WORDS_PER_LINE];
 			}
-			//insert level 1
+			//insert level 1
 			
 			
 			}
@@ -542,3 +554,15 @@ int cache_write_byte(void * mem_space, phy_addr_t * paddr, void * l1_cache,
 int cache_dump(FILE* output, const void* cache, cache_t cache_type){
 	return 0;
 }
+© 2019 GitHub, Inc.
+Terms
+Privacy
+Security
+Status
+Help
+Contact GitHub
+Pricing
+API
+Training
+Blog
+About
