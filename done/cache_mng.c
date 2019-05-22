@@ -250,6 +250,16 @@ void* evict(cache_t cache_type, void* cache, uint16_t line_index) {
 		default: return NULL;break;
 		}
 	}
+void modify_ages(cache_t cache_type,void *cache, uint8_t way, uint16_t line_index){
+	if (way == NOTHING_FOUND) return;//not a cold start and not a hit
+	switch (cache_type){
+		case L1_ICACHE: if (way == NOTHING_FOUND) {LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);}break;
+		case L1_DCACHE: if (way == NOTHING_FOUND) {LRU_age_update(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way);}break;
+		case L2_CACHE : if (way == NOTHING_FOUND) {LRU_age_update(l2_cache_entry_t, L2_CACHE_WAYS, line_index, way  ) }else {LRU_age_increase(l2_cache_entry_t, L2_CACHE_WAYS, line_index, way  );}break;
+		 
+		default         : fprintf(stderr, "wrong instance of mem access at modify ages"); break;
+		}
+	}
 
 
 int insert_level2(l2_cache_entry_t* cache, l2_cache_entry_t* entry, uint32_t phy_addr){
@@ -267,20 +277,12 @@ int insert_level2(l2_cache_entry_t* cache, l2_cache_entry_t* entry, uint32_t phy
 		//LRU_age_update(l2_cache_entry_t, L2_CACHE_WAYS, line_index, cache_way); //update ages
 		}
 	if ((err = cache_insert(line_index,cache_way,entry->line,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
-	if (cache_way != NOTHING_FOUND) LRU_age_increase(l2_cache_entry_t, L2_CACHE_WAYS, line_index, cache_way);//update ages
+	modify_ages(L2_CACHE, cache, cache_way, line_index);
 	return ERR_NONE;
 	}
 
 #define cast_l1_entry(access, entry) ( ((access) == INSTRUCTION)? ((l1_icache_entry_t*)(entry)): ((l1_icache_entry_t*)(entry)))
 
-void modify_ages_level1(mem_access_t access,void *cache, uint8_t way, uint16_t line_index){
-	if (way == NOTHING_FOUND) return;//not a cold start and not a hit
-	switch (access){
-		case INSTRUCTION: if (way == NOTHING_FOUND) {LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);}break;
-		case DATA       : if (way == NOTHING_FOUND) {LRU_age_update(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way);}break;
-		default         : fprintf(stderr, "wrong instance of mem access at modify ages"); break;
-		}
-	}
 
 // --------------------------------------------------
 #define cache_cast_any(TYPE, CACHE) ((TYPE *)CACHE)
@@ -330,29 +332,20 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
 	//insert in l1 cache (here we are sure that there is at least an empt way)
 	
 	
-    if ((err = cache_insert(line_index,cache_way,cast_l1_entry(access, entry)->line, l1_cache,cache_type))!= ERR_NONE) return err; // error propagation
+    if ((err = cache_insert(line_index,cache_way, entry, l1_cache,cache_type))!= ERR_NONE) return err; // error propagation
    			
-	modify_ages_level1(access,l1_cache, cache_way,line_index);//update ages
+	modify_ages(cache_type,l1_cache, cache_way,line_index);//update ages
 	
 	return ERR_NONE;
 	} 
 
 int move_entry_to_level1(mem_access_t access,void * l1_cache, void * l2_cache, l2_cache_entry_t* l2_entry, uint32_t phy_addr){
-	cache_t cache_type = 0;
-	uint16_t line_index = 0;
+	
 	int err = ERR_NONE;
 	void* l1_entry = NULL; 
 	switch (access){
-		case INSTRUCTION: {
-			cache_type = L1_ICACHE;
-			line_index = extract_line_index(phy_addr, L1_ICACHE_WORDS_PER_LINE, L1_ICACHE_LINES);
-			l1_icache_entry_t entry; l1_entry = &entry;
-			}break;
-		case DATA       : {
-			cache_type = L1_DCACHE;
-			line_index = extract_line_index(phy_addr, L1_DCACHE_WORDS_PER_LINE, L1_DCACHE_LINES);
-			l1_dcache_entry_t entry; l1_entry = &entry;
-			}break;
+		case INSTRUCTION: { l1_icache_entry_t entry; l1_entry = &entry;}break;
+		case DATA       : { l1_dcache_entry_t entry; l1_entry = &entry;}break;
 		default: return ERR_BAD_PARAMETER;
 		}
 	cast_cache_line_l2_to_l1(access,l1_entry,l2_entry,phy_addr);
