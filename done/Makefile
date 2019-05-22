@@ -27,7 +27,7 @@ test-tlb_simple:: test-tlb_simple.c error.o util.h addr_mng.o addr.h commands.o 
 test-tlb_hrchy:: test-tlb_hrchy.c error.o util.h addr.h commands.o mem_access.h memory.o tlb_hrchy.h tlb_hrchy_mng.o page_walk.o addr_mng.o
 test-cache:: test-cache.c error.o cache_mng.o mem_access.h addr.h cache.h commands.o memory.o addr_mng.o page_walk.o
 tlb_hrchy_mng.o:: tlb_hrchy_mng.c tlb_hrchy_mng.h tlb_hrchy.h addr.h mem_access.h addr_mng.o error.o page_walk.o
-cache_mng.o:: cache_mng.c error.o cache_mng.h mem_access.h addr.h cache.h lru.h
+cache_mng.o:: cache_mng.c error.o cache_mng.h mem_access.h addr.h cache.h lru.h addr_mng.o
 tlb_mng.o:: tlb_mng.c tlb.h addr.h addr_mng.o tlb_mng.h list.o page_walk.o error.o
 list.o:: list.c list.h error.o
 memory.o :: memory.c memory.h page_walk.o util.h addr_mng.o error.o addr.h

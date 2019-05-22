@@ -47,6 +47,9 @@ int cache_flush(void *cache, cache_t cache_type){
 	
 	return ERR_NONE;
 	}
+	#define extract_line_index(phy_addr, WORDS_PER_LINE, NB_LINES) \
+	(((phy_addr)/(sizeof(word_t)*(WORDS_PER_LINE))) % (NB_LINES))
+	
 /**
  * 
  * 
@@ -62,7 +65,7 @@ int cache_flush(void *cache, cache_t cache_type){
  * 
  */
 #define cache_hit_generic(type, NB_LINES, WORDS_PER_LINE, REMAINING_BITS, WAYS) \
-	uint16_t line_index = (phy_addr/(sizeof(word_t)*WORDS_PER_LINE))%NB_LINES;\
+	uint16_t line_index = extract_line_index(phy_addr, WORDS_PER_LINE, NB_LINES);\
 	uint32_t tag = phy_addr >> REMAINING_BITS;\
 	foreach_way(way, WAYS) {\
 		if (!cache_valid(type, WAYS, line_index, way) ){/* found a place*/ \
@@ -79,6 +82,7 @@ int cache_flush(void *cache, cache_t cache_type){
 	}\
 	/*if we arrive here no entry has been found*/\
 	return ERR_NONE;
+
 
 //=========================================================================
 /**
@@ -108,6 +112,7 @@ int cache_hit (const void * mem_space, void * cache, phy_addr_t * paddr, const u
 	*hit_way = HIT_WAY_MISS;
 	*hit_index = HIT_INDEX_MISS;
 	uint32_t phy_addr = phy_to_int(paddr);
+	
 	switch(cache_type){
 		case L1_ICACHE:{ cache_hit_generic(l1_icache_entry_t, L1_ICACHE_LINES, L1_ICACHE_WORDS_PER_LINE, L1_ICACHE_TAG_REMAINING_BITS, L1_ICACHE_WAYS);
 		break;}
@@ -118,7 +123,7 @@ int cache_hit (const void * mem_space, void * cache, phy_addr_t * paddr, const u
 		default: return ERR_BAD_PARAMETER;
 	}
 }
-#define init_cache_entry(TYPE, LINE, AGE,VALID)
+
 //=========================================================================
 /**
  * @brief Insert an entry to a cache.
@@ -245,7 +250,7 @@ void* evict(cache_t cache_type, void* cache, uint16_t line_index) {
 		default: return NULL;break;
 		}
 	}
-#define extract_line_index(phy_addr, WORDS_PER_LINE, NB_LINES) (((phy_addr)>>(WORDS_PER_LINE)) % (NB_LINES))
+
 
 int insert_level2(l2_cache_entry_t* cache, l2_cache_entry_t* entry, uint32_t phy_addr){
 	uint16_t line_index = extract_line_index(phy_addr, L2_CACHE_WORDS_PER_LINE, L2_CACHE_LINES);
@@ -271,19 +276,49 @@ int insert_level2(l2_cache_entry_t* cache, l2_cache_entry_t* entry, uint32_t phy
 void modify_ages_level1(mem_access_t access,void *cache, uint8_t way, uint16_t line_index){
 	if (way == NOTHING_FOUND) return;//not a cold start and not a hit
 	switch (access){
-		case INSTRUCTION: LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);break;
-		case DATA       : LRU_age_increase(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way);break;
+		case INSTRUCTION: if (way == NOTHING_FOUND) {LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);}break;
+		case DATA       : if (way == NOTHING_FOUND) {LRU_age_update(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way);}break;
 		default         : fprintf(stderr, "wrong instance of mem access at modify ages"); break;
 		}
 	}
 
+// --------------------------------------------------
+#define cache_cast_any(TYPE, CACHE) ((TYPE *)CACHE)
+
+// --------------------------------------------------
+#define cache_entry_any(TYPE, WAYS, LINE_INDEX, WAY, CACHE) \
+        (cache_cast_any(TYPE, CACHE) + (LINE_INDEX) * (WAYS) + (WAY))
+
+// --------------------------------------------------
+#define cache_valid_any(TYPE, WAYS, LINE_INDEX, WAY, CACHE) \
+        cache_entry_any(TYPE, WAYS, LINE_INDEX, WAY,CACHE)->v
+
+// --------------------------------------------------
+#define cache_age_any(TYPE, WAYS, LINE_INDEX, WAY, CACHE) \
+        cache_entry_any(TYPE, WAYS, LINE_INDEX, WAY, CACHE)->age
+
+// --------------------------------------------------
+#define cache_tag_any(TYPE, WAYS, LINE_INDEX, WAY, CACHE) \
+        cache_entry_any(TYPE, WAYS, LINE_INDEX, WAY, CACHE)->tag
+
+// --------------------------------------------------
+#define cache_line_any(TYPE, WAYS, LINE_INDEX, WAY, CACHE) \
+        cache_entry_any(TYPE, WAYS, LINE_INDEX, WAY, CACHE)->line
+// --------------------------------------------------
+
+
+
 int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* entry, uint32_t phy_addr){
+	
 	int err = ERR_NONE;
 	cache_t cache_type = (access == INSTRUCTION) ? L1_ICACHE: L1_DCACHE;
 	uint16_t line_index = extract_line_index(phy_addr, L1_ICACHE_WORDS_PER_LINE, L1_ICACHE_LINES);
+	
 	//find place
 	int cache_way = find_empty_slot(cache_type, l1_cache, line_index);
+	
 	if (cache_way == NOTHING_FOUND){// make some space and transfer evicted entry to level 2
+		
 		// there is no empty slot in l1 cache
 		void* evicted_entry = evict(cache_type, l1_cache, line_index); //eviction
 		l2_cache_entry_t l2_entry;
@@ -293,13 +328,15 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
 		if ((err = insert_level2((l2_cache_entry_t*)l2_cache, &l2_entry, phy_addr))!= ERR_NONE) return err; //error propagation
 		}
 	//insert in l1 cache (here we are sure that there is at least an empt way)
+	
+	
     if ((err = cache_insert(line_index,cache_way,cast_l1_entry(access, entry)->line, l1_cache,cache_type))!= ERR_NONE) return err; // error propagation
+   			
 	modify_ages_level1(access,l1_cache, cache_way,line_index);//update ages
+	
 	return ERR_NONE;
 	} 
 
-//#define create_l1_entry_of_name(access, name) (access == INSTRUCTION)?#l1_icache_entry_t name:#l1_dcache_entry_t name
-//#define type(access)  if (access == INSTRUCTION) l1_icache_entry_t* else l1_dcache_entry_t* 
 int move_entry_to_level1(mem_access_t access,void * l1_cache, void * l2_cache, l2_cache_entry_t* l2_entry, uint32_t phy_addr){
 	cache_t cache_type = 0;
 	uint16_t line_index = 0;
@@ -323,6 +360,10 @@ int move_entry_to_level1(mem_access_t access,void * l1_cache, void * l2_cache, l
 	if ((err = insert_level1(access,l1_cache, l2_cache, l1_entry, phy_addr))!= ERR_NONE) return err;//error propagation
 	return ERR_NONE;
 	}
+
+
+
+
 
 //=========================================================================
 /**
@@ -371,8 +412,8 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 	if  (hit_way != HIT_WAY_MISS){
 		//found it
 		cache = l1_cache;
-		if (access == INSTRUCTION) *word = cache_line(l1_icache_entry_t, L1_ICACHE_WAYS, hit_index, hit_way)[(phy_addr/sizeof(word_t))%L1_ICACHE_WORDS_PER_LINE];
-		else                       *word = cache_line(l1_dcache_entry_t, L1_DCACHE_WAYS, hit_index, hit_way)[(phy_addr/sizeof(word_t))%L1_DCACHE_WORDS_PER_LINE];
+		if (access == INSTRUCTION) *word = cache_line_any(l1_icache_entry_t, L1_ICACHE_WAYS, hit_index, hit_way, l1_cache)[(phy_addr/sizeof(word_t))%L1_ICACHE_WORDS_PER_LINE];
+		else                       *word = cache_line_any(l1_dcache_entry_t, L1_DCACHE_WAYS, hit_index, hit_way, l1_cache)[(phy_addr/sizeof(word_t))%L1_DCACHE_WORDS_PER_LINE];
 		}
 	else{
 		//not found in l1 => search in l2
@@ -381,23 +422,27 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 			cache = l2_cache;
 			if ((err = move_entry_to_level1(access,l1_cache, l2_cache, cache_entry(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way), phy_addr))!= ERR_NONE){
 				return err;}//error propagation
-			*word = cache_line(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way)[phy_addr%L2_CACHE_WORDS_PER_LINE];
+			*word = cache_line_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache)[(phy_addr/sizeof(word_t))%L2_CACHE_WORDS_PER_LINE];
 			}
 		else {
-			//not foud in l2
 			void* entry = NULL;
 			if (access == INSTRUCTION){
 				l1_icache_entry_t cache_entry;
 				entry = &cache_entry;
 				if ((err =cache_entry_init(mem_space,paddr,entry,L1_ICACHE))!= ERR_NONE) return err; //error propagation
+				if ((err = insert_level1(access,l1_cache, l2_cache, entry,phy_addr))!= ERR_NONE) return err; //error propagation
+				*word = cache_entry.line[(phy_addr/sizeof(word_t))%L1_ICACHE_WORDS_PER_LINE];
 				}
 			else {
 				l1_dcache_entry_t cache_entry;
 				entry = &cache_entry;
 				if ((err =cache_entry_init(mem_space,paddr,entry,L1_DCACHE))!= ERR_NONE) return err; //error propagation
-				//insert level 1
 				if ((err = insert_level1(access,l1_cache, l2_cache, entry,phy_addr))!= ERR_NONE) return err; //error propagation
-				}
+				*word = cache_entry.line[(phy_addr/sizeof(word_t))%L1_DCACHE_WORDS_PER_LINE];
+			}
+			//insert level 1
+			
+			
 			}
 		}
 	return ERR_NONE;
@@ -432,8 +477,8 @@ int cache_read_byte(const void * mem_space, phy_addr_t * p_paddr, mem_access_t a
 	
 	word_t word = 0;
 	int byte_index = p_paddr->page_offset % sizeof(word_t);
-	phy_addr_t paddr;
-	if (( err = init_phy_addr(&paddr, p_paddr->phy_page_num << PAGE_OFFSET, p_paddr->page_offset - byte_index))!= ERR_NONE) return err;
+	phy_addr_t paddr = *p_paddr;
+	paddr.page_offset -= byte_index;
 	if ((err = cache_read(mem_space,&paddr, access,l1_cache, l2_cache, &word, replace)) != ERR_NONE) return err;//error propagation
 	*p_byte = (word>>byte_index)&MASK_BYTE;//final affectation
 	
@@ -485,3 +530,15 @@ int cache_write_byte(void * mem_space, phy_addr_t * paddr, void * l1_cache,
 	M_REQUIRE(replace == LRU, ERR_BAD_PARAMETER, "replace is not a valid instance of cache_replace_t %c", ' ');
 	return ERR_NONE;					 
 	}
+
+//=========================================================================
+/**
+ * @brief Print the contents of a cache to a stream.
+ * @param output the stream to print to.
+ * @param cache pointer to the cache
+ * @param cache_type to distinguish between different caches
+ * @return error code
+ */
+int cache_dump(FILE* output, const void* cache, cache_t cache_type){
+	return 0;
+}
