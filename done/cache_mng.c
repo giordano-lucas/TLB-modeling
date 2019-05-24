@@ -2,6 +2,7 @@
 #include "error.h"
 #include "cache_mng.h"
 #include "lru.h"
+#include <inttypes.h>
 #include <stdbool.h>
 #include "addr_mng.h"
 //=========================================================================
@@ -145,14 +146,19 @@ int cache_insert(uint16_t cache_line_index,uint8_t cache_way,const void * cache_
          case L1_ICACHE : {
 		 M_REQUIRE(cache_way < L1_ICACHE_WAYS, ERR_BAD_PARAMETER, "cache way has to be inferior to L1_ICACHE_WAYS", ' ');
 		 *cache_entry(l1_icache_entry_t,L1_ICACHE_WAYS, cache_line_index, cache_way ) = *(l1_icache_entry_t*)cache_line_in;
+		 //memset(cache_line(l1_icache_entry_t, L1_ICACHE_WAYS, cache_line_index, cache_way), cache_line_in, L1_ICACHE_WORDS_PER_LINE*sizeof(word_t));
          return ERR_NONE;}
          case L1_DCACHE :
           M_REQUIRE(cache_way < L1_DCACHE_WAYS, ERR_BAD_PARAMETER, "cache way has to be inferior to L1_DCACHE_WAYS", ' ');
          *cache_entry(l1_dcache_entry_t,L1_DCACHE_WAYS, cache_line_index, cache_way ) = *(l1_dcache_entry_t*)cache_line_in;
+	     //memset(cache_line(l1_dcache_entry_t, L1_DCACHE_WAYS, cache_line_index, cache_way), cache_line_in, L1_DCACHE_WORDS_PER_LINE*sizeof(word_t));
+         
          return ERR_NONE;
          case L2_CACHE  :
           M_REQUIRE(cache_way < L2_CACHE_WAYS, ERR_BAD_PARAMETER, "cache way has to be inferior to L2_CACHE_WAYS", ' ');
          *cache_entry(l2_cache_entry_t,L2_CACHE_WAYS, cache_line_index, cache_way ) = *(l2_cache_entry_t*)cache_line_in;
+         //memset(cache_line(l2_cache_entry_t, L2_CACHE_WAYS, cache_line_index, cache_way), cache_line_in, L2_CACHE_WORDS_PER_LINE*sizeof(word_t));
+         
          return ERR_NONE;
          default        : return ERR_BAD_PARAMETER; break;
     }
@@ -250,7 +256,7 @@ void* evict(cache_t cache_type, void* cache, uint16_t line_index) {
 		}
 	}
 void modify_ages(cache_t cache_type,void *cache, uint8_t way, uint16_t line_index){
-	if (way == NOTHING_FOUND) return;//not a cold start and not a hit
+	//if (way == NOTHING_FOUND) return;//not a cold start and not a hit
 	switch (cache_type){
 		case L1_ICACHE: if (way == NOTHING_FOUND) {LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);}break;
 		case L1_DCACHE: if (way == NOTHING_FOUND) {LRU_age_update(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way);}break;
@@ -276,7 +282,7 @@ int insert_level2(l2_cache_entry_t* cache, l2_cache_entry_t* entry, uint32_t phy
 		//if ((err = cache_insert(line_index,cache_way,entry,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
 		//LRU_age_update(l2_cache_entry_t, L2_CACHE_WAYS, line_index, cache_way); //update ages
 		}
-	if ((err = cache_insert(line_index,cache_way,entry,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
+	if ((err = cache_insert(line_index,cache_way,((l2_cache_entry_t*)entry),cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
 	modify_ages(L2_CACHE, cache, cache_way, line_index);
 	return ERR_NONE;
 	}
@@ -332,9 +338,9 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
 		}
 		
 	//insert in l1 cache (here we are sure that there is at least an empt way)
-	
-	
-    if ((err = cache_insert(line_index,cache_way, entry, l1_cache,cache_type))!= ERR_NONE) return err; // error propagation
+	int mesCouilles = phy_addr >> L1_DCACHE_TAG_REMAINING_BITS;
+	fprintf(stdout, "\n*** CACHE WAY : %d; CACHE LINE : %d ; TAG : %d", cache_way, line_index, cast_l1_entry(access,entry)->tag);
+    if ((err = cache_insert(line_index,cache_way, cast_l1_entry(access,entry), l1_cache,cache_type))!= ERR_NONE) return err; // error propagation
    			
 	modify_ages(cache_type,l1_cache, cache_way,line_index);//update ages
 	
@@ -394,7 +400,7 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 	M_REQUIRE(replace == LRU, ERR_BAD_PARAMETER, "replace is not a valid instance of cache_replace_t %c", ' ');
 	M_REQUIRE(access == INSTRUCTION || access == DATA, ERR_BAD_PARAMETER, "access is not a valid instance of mem_access_t %c", ' ');
 	M_REQUIRE((paddr->page_offset % sizeof(word_t)) == 0, ERR_BAD_PARAMETER, "paddr should be word aligned for cache_read  %c",' ');
-	
+	fprintf(stdout, "*** READING : ");
 	void* cache = NULL; // to use macro defined in cache_h
 	int err = ERR_NONE; // used to propagate errors
 	uint32_t phy_addr = phy_to_int(paddr);
@@ -405,6 +411,7 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 								   cache_hit(mem_space, l1_cache, paddr,&p_line,&hit_way,&hit_index, L1_DCACHE);
 	if (err != ERR_NONE){return err;} //error handling
 	if  (hit_way != HIT_WAY_MISS){
+		printf("***HIT WAY L1");
 		//found it
 		cache = l1_cache;
 		if (access == INSTRUCTION) *word = cache_line_any(l1_icache_entry_t, L1_ICACHE_WAYS, hit_index, hit_way, l1_cache)[(phy_addr/sizeof(word_t))%L1_ICACHE_WORDS_PER_LINE];
@@ -412,14 +419,16 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 		}
 	else{
 		//not found in l1 => search in l2
-		cache_hit(mem_space, l2_cache, paddr,&p_line,&hit_way,&hit_index, L2_CACHE);
+		if((err = cache_hit(mem_space, l2_cache, paddr,&p_line,&hit_way,&hit_index, L2_CACHE)) != ERR_NONE) return err;
 		if (hit_way != HIT_WAY_MISS) {
+			printf("***IF");
 			cache = l2_cache;
 			if ((err = move_entry_to_level1(access,l1_cache, l2_cache, cache_entry(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way), phy_addr))!= ERR_NONE){
 				return err;}//error propagation
 			*word = cache_line_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache)[(phy_addr/sizeof(word_t))%L2_CACHE_WORDS_PER_LINE];
 			}
 		else {
+			printf("***ELSE");
 			void* entry = NULL;
 			if (access == INSTRUCTION){
 				l1_icache_entry_t cache_entry;
@@ -437,6 +446,7 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 			}
 			}
 		}
+		printf("***END READ");
 	return ERR_NONE;
 
 }
@@ -523,14 +533,65 @@ int cache_write_byte(void * mem_space, phy_addr_t * paddr, void * l1_cache,
 	return ERR_NONE;					 
 	}
 
+
 //=========================================================================
-/**
- * @brief Print the contents of a cache to a stream.
- * @param output the stream to print to.
- * @param cache pointer to the cache
- * @param cache_type to distinguish between different caches
- * @return error code
- */
-int cache_dump(FILE* output, const void* cache, cache_t cache_type){
-	return 0;
+#define PRINT_CACHE_LINE(OUTFILE, TYPE, WAYS, LINE_INDEX, WAY, WORDS_PER_LINE) \
+    do { \
+            fprintf(OUTFILE, "V: %1" PRIx8 ", AGE: %1" PRIx8 ", TAG: 0x%03" PRIx16 ", values: ( ", \
+                        cache_valid(TYPE, WAYS, LINE_INDEX, WAY), \
+                        cache_age(TYPE, WAYS, LINE_INDEX, WAY), \
+                        cache_tag(TYPE, WAYS, LINE_INDEX, WAY)); \
+            for(int i_ = 0; i_ < WORDS_PER_LINE; i_++) \
+                fprintf(OUTFILE, "0x%08" PRIx32 " ", \
+                        cache_line(TYPE, WAYS, LINE_INDEX, WAY)[i_]); \
+            fputs(")\n", OUTFILE); \
+    } while(0)
+
+#define PRINT_INVALID_CACHE_LINE(OUTFILE, TYPE, WAYS, LINE_INDEX, WAY, WORDS_PER_LINE) \
+    do { \
+            fprintf(OUTFILE, "V: %1" PRIx8 ", AGE: -, TAG: -----, values: ( ---------- ---------- ---------- ---------- )\n", \
+                        cache_valid(TYPE, WAYS, LINE_INDEX, WAY)); \
+    } while(0)
+
+#define DUMP_CACHE_TYPE(OUTFILE, TYPE, WAYS, LINES, WORDS_PER_LINE)  \
+    do { \
+        for(uint16_t index = 0; index < LINES; index++) { \
+            foreach_way(way, WAYS) { \
+                fprintf(output, "%02" PRIx8 "/%04" PRIx16 ": ", way, index); \
+                if(cache_valid(TYPE, WAYS, index, way)) \
+                    PRINT_CACHE_LINE(OUTFILE, const TYPE, WAYS, index, way, WORDS_PER_LINE); \
+                else \
+                    PRINT_INVALID_CACHE_LINE(OUTFILE, const TYPE, WAYS, index, way, WORDS_PER_LINE);\
+            } \
+        } \
+    } while(0)
+
+//=========================================================================
+// see cache_mng.h
+int cache_dump(FILE* output, const void* cache, cache_t cache_type)
+{
+    M_REQUIRE_NON_NULL(output);
+    M_REQUIRE_NON_NULL(cache);
+
+    fputs("WAY/LINE: V: AGE: TAG: WORDS\n", output);
+    switch (cache_type) {
+    case L1_ICACHE:
+        DUMP_CACHE_TYPE(output, l1_icache_entry_t, L1_ICACHE_WAYS,
+                        L1_ICACHE_LINES, L1_ICACHE_WORDS_PER_LINE);
+        break;
+    case L1_DCACHE:
+        DUMP_CACHE_TYPE(output, l1_dcache_entry_t, L1_DCACHE_WAYS,
+                        L1_DCACHE_LINES, L1_DCACHE_WORDS_PER_LINE);
+        break;
+    case L2_CACHE:
+        DUMP_CACHE_TYPE(output, l2_cache_entry_t, L2_CACHE_WAYS,
+                        L2_CACHE_LINES, L2_CACHE_WORDS_PER_LINE);
+        break;
+    default:
+        debug_print("%d: unknown cache type", cache_type);
+        return ERR_BAD_PARAMETER;
+    }
+    putc('\n', output);
+
+    return ERR_NONE;
 }
