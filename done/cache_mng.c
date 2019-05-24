@@ -1,23 +1,3 @@
-Skip to content
- 
-Search or jump to…
-
-Pull requests
-Issues
-Marketplace
-Explore
- 
-@giordano3102lucas 
-1
-0 0 projprogsys-epfl/pps19-projet-mathilde Private
- Code  Issues 0  Pull requests 0  Projects 0  Wiki  Insights
-pps19-projet-mathilde/done/cache_mng.c
-@boesingerl boesingerl modified cache mng
-b5cf87d 31 minutes ago
-@giordano3102lucas @boesingerl
-538 lines (477 sloc)  25.5 KB
-    
-
 
 #include "error.h"
 #include "cache_mng.h"
@@ -88,7 +68,7 @@ int cache_flush(void *cache, cache_t cache_type){
 	uint32_t tag = phy_addr >> REMAINING_BITS;\
 	foreach_way(way, WAYS) {\
 		if (!cache_valid(type, WAYS, line_index, way) ){/* found a place*/ \
-			LRU_age_increase(type, WAYS, line_index, way);/*update*/ \
+			/*LRU_age_increase(type, WAYS, line_index, way);update*/ \
 			return ERR_NONE;\
 			}\
 		else if (cache_tag(type, WAYS, line_index, way) == tag){/*hit*/ \
@@ -296,16 +276,8 @@ int insert_level2(l2_cache_entry_t* cache, l2_cache_entry_t* entry, uint32_t phy
 		//if ((err = cache_insert(line_index,cache_way,entry,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
 		//LRU_age_update(l2_cache_entry_t, L2_CACHE_WAYS, line_index, cache_way); //update ages
 		}
-<<<<<<< HEAD
-	if ((err = cache_insert(line_index,cache_way,entry->line,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
-	modify_ages(L2_CACHE, cache, cache_way, line_index);
-||||||| merged common ancestors
-	if ((err = cache_insert(line_index,cache_way,entry->line,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
-	if (cache_way != NOTHING_FOUND) LRU_age_increase(l2_cache_entry_t, L2_CACHE_WAYS, line_index, cache_way);//update ages
-=======
 	if ((err = cache_insert(line_index,cache_way,entry,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
 	modify_ages(L2_CACHE, cache, cache_way, line_index);
->>>>>>> d1579bacbc6a150c5e810e452f792ab4b1267760
 	return ERR_NONE;
 	}
 
@@ -463,9 +435,6 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 				if ((err = insert_level1(access,l1_cache, l2_cache, entry,phy_addr))!= ERR_NONE) return err; //error propagation
 				*word = cache_entry.line[(phy_addr/sizeof(word_t))%L1_DCACHE_WORDS_PER_LINE];
 			}
-			//insert level 1
-			
-			
 			}
 		}
 	return ERR_NONE;
@@ -565,15 +534,3 @@ int cache_write_byte(void * mem_space, phy_addr_t * paddr, void * l1_cache,
 int cache_dump(FILE* output, const void* cache, cache_t cache_type){
 	return 0;
 }
-© 2019 GitHub, Inc.
-Terms
-Privacy
-Security
-Status
-Help
-Contact GitHub
-Pricing
-API
-Training
-Blog
-About
