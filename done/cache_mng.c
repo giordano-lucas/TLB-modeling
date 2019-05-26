@@ -116,7 +116,7 @@ int cache_flush(void *cache, cache_t cache_type){
 			return ERR_NONE;                                                           \
 			}                                                                          \
 		else if (cache_tag(type, WAYS, line_index, way) == tag){/*hit*/                \
-			*p_line = cache_line(type, WAYS, line_index, way);                         \
+			*p_line = cache_line(type, WAYS, line_index, way); /*if hit, set way and index*/\
 			*hit_way = way;                                                            \
 			*hit_index = line_index;                                                   \
 			LRU_age_update(type, WAYS, line_index, way);/*update ages*/                \
@@ -145,19 +145,19 @@ int cache_flush(void *cache, cache_t cache_type){
  */
 
 int cache_hit (const void * mem_space, void * cache, phy_addr_t * paddr, const uint32_t ** p_line, uint8_t *hit_way, uint16_t *hit_index, cache_t cache_type){
-	M_REQUIRE_NON_NULL(mem_space);
+	M_REQUIRE_NON_NULL(mem_space); //check all requirements
 	M_REQUIRE_NON_NULL(cache);
 	M_REQUIRE_NON_NULL(paddr);
 	M_REQUIRE_NON_NULL(p_line);
 	M_REQUIRE_NON_NULL(hit_way);
 	M_REQUIRE_NON_NULL(hit_index);
 	M_REQUIRE(L1_ICACHE <= cache_type && cache_type <= L2_CACHE, ERR_BAD_PARAMETER, "%d is not a valid cache_type \n", cache_type);
-	*hit_way = HIT_WAY_MISS;
+	*hit_way = HIT_WAY_MISS;//init to miss first and set to hit otherwise
 	*hit_index = HIT_INDEX_MISS;
 	*p_line = NULL;
 	uint32_t phy_addr = phy_to_int(paddr);
 	
-	switch(cache_type){
+	switch(cache_type){ //use the generic macro depending on the type of the cache
 		case L1_ICACHE:{ cache_hit_generic(l1_icache_entry_t, L1_ICACHE_LINES, L1_ICACHE_WORDS_PER_LINE, L1_ICACHE_TAG_REMAINING_BITS, L1_ICACHE_WAYS);break;}
 		case L1_DCACHE:{ cache_hit_generic(l1_dcache_entry_t, L1_DCACHE_LINES, L1_DCACHE_WORDS_PER_LINE, L1_DCACHE_TAG_REMAINING_BITS, L1_DCACHE_WAYS);break;}
 		case L2_CACHE :{ cache_hit_generic(l2_cache_entry_t, L2_CACHE_LINES, L2_CACHE_WORDS_PER_LINE, L2_CACHE_TAG_REMAINING_BITS, L2_CACHE_WAYS);break;}
@@ -179,27 +179,24 @@ int cache_hit (const void * mem_space, void * cache, phy_addr_t * paddr, const u
 
 int cache_insert(uint16_t cache_line_index,uint8_t cache_way,const void * cache_line_in,
                  void * cache, cache_t cache_type){
-	M_REQUIRE_NON_NULL(cache);
+	M_REQUIRE_NON_NULL(cache);//check requirements
 	M_REQUIRE_NON_NULL(cache_line_in);
 	M_REQUIRE(L1_ICACHE <= cache_type && cache_type <= L2_CACHE, ERR_BAD_PARAMETER, "cache type is not a valid value : %d", cache_type);
 	
-	switch (cache_type) {
+	switch (cache_type) { //use the generic macro depending on the type of the cache
          case L1_ICACHE : {
-		 M_REQUIRE(cache_way < L1_ICACHE_WAYS, ERR_BAD_PARAMETER, "cache way has to be inferior to L1_ICACHE_WAYS %c", ' ');
+		 M_REQUIRE(cache_way < L1_ICACHE_WAYS && cache_line_index < L1_ICACHE_LINES, ERR_BAD_PARAMETER, "cache way and index have to match with  L1_ICACHE%c", ' ');//verify that the way is in the cache
 		 *cache_entry(l1_icache_entry_t,L1_ICACHE_WAYS, cache_line_index, cache_way ) = *(l1_icache_entry_t*)cache_line_in;
-		 //memset(cache_line(l1_icache_entry_t, L1_ICACHE_WAYS, cache_line_index, cache_way), cache_line_in, L1_ICACHE_WORDS_PER_LINE*sizeof(word_t));
-         return ERR_NONE;}
+		 return ERR_NONE;}
          case L1_DCACHE :
-          M_REQUIRE(cache_way < L1_DCACHE_WAYS, ERR_BAD_PARAMETER, "cache way has to be inferior to L1_DCACHE_WAYS %c", ' ');
+         M_REQUIRE(cache_way < L1_DCACHE_WAYS && cache_line_index < L1_DCACHE_LINES, ERR_BAD_PARAMETER, "cache way and index have to match with  L1_DCACHE%c", ' ');
          *cache_entry(l1_dcache_entry_t,L1_DCACHE_WAYS, cache_line_index, cache_way ) = *(l1_dcache_entry_t*)cache_line_in;
-	     //memset(cache_line(l1_dcache_entry_t, L1_DCACHE_WAYS, cache_line_index, cache_way), cache_line_in, L1_DCACHE_WORDS_PER_LINE*sizeof(word_t));
-         
+	     
          return ERR_NONE;
          case L2_CACHE  :
-          M_REQUIRE(cache_way < L2_CACHE_WAYS, ERR_BAD_PARAMETER, "cache way has to be inferior to L2_CACHE_WAYS  %c", ' ');
+         M_REQUIRE(cache_way < L2_CACHE_WAYS && cache_line_index < L2_CACHE_LINES, ERR_BAD_PARAMETER, "cache way and index have to match with  L2_CACHE%c", ' ');
          *cache_entry(l2_cache_entry_t,L2_CACHE_WAYS, cache_line_index, cache_way ) = *(l2_cache_entry_t*)cache_line_in;
-         //memset(cache_line(l2_cache_entry_t, L2_CACHE_WAYS, cache_line_index, cache_way), cache_line_in, L2_CACHE_WORDS_PER_LINE*sizeof(word_t));
-         
+        
          return ERR_NONE;
          default        : return ERR_BAD_PARAMETER; break;
     }
@@ -208,13 +205,13 @@ int cache_insert(uint16_t cache_line_index,uint8_t cache_way,const void * cache_
 
 //=========================================================================
 
-#define cache_entry_init_generic(type, cache_entry, phy_addr, CACHE_TAG_REMAINING_BITS, mem_space, WORDS_PER_LINE) {     \
-			type* entry = cache_entry;                                                                                             \
-			entry->v = 1;                                                                                                          \
-			entry->age = 0;                                                                                                        \
-			entry->tag = phy_addr >> CACHE_TAG_REMAINING_BITS;     																	\
-			uint32_t addr = ((phy_addr/sizeof(word_t))/WORDS_PER_LINE)*WORDS_PER_LINE  ;            \
-			memcpy (entry->line, (word_t*)(mem_space) + addr,WORDS_PER_LINE*sizeof(word_t));                                 \
+#define cache_entry_init_generic(type, cache_entry, phy_addr, CACHE_TAG_REMAINING_BITS, mem_space, WORDS_PER_LINE) {     						 \
+			type* entry = cache_entry;                                                                                             				  \
+			entry->v = 1;          /* valid when we insert*/                                                                                       \
+			entry->age = 0;                                                                                                        					\
+			entry->tag = phy_addr >> CACHE_TAG_REMAINING_BITS;     																					 \
+			uint32_t addr = ((phy_addr/sizeof(word_t))/WORDS_PER_LINE)*WORDS_PER_LINE  ;          													  \
+			memcpy (entry->line, (word_t*)(mem_space) + addr,WORDS_PER_LINE*sizeof(word_t));   /*copy the line from the given entry to the new entry*/ \
 			}
  
 // ========================================================================
@@ -228,13 +225,13 @@ int cache_insert(uint16_t cache_line_index,uint8_t cache_way,const void * cache_
  * @return  error code
  */
 int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cache_entry,cache_t cache_type){
-	M_REQUIRE_NON_NULL(mem_space);
+	M_REQUIRE_NON_NULL(mem_space); //basic checks
 	M_REQUIRE_NON_NULL(paddr);
 	M_REQUIRE_NON_NULL(cache_entry);
-	M_REQUIRE((L1_ICACHE<=cache_type)&&(cache_type <= L2_CACHE),ERR_BAD_PARAMETER,"Wrong instance of cache_type %c",' ');
+	M_REQUIRE((L1_ICACHE<=cache_type)&&(cache_type <= L2_CACHE),ERR_BAD_PARAMETER,"Wrong instance of cache_type %c",' '); //ctype has to be a part of the enum
 	
 	uint32_t phy_addr = phy_to_int(paddr);
-	switch (cache_type) {
+	switch (cache_type) { //use the generic macro depending on the type of the cache
 		case L1_ICACHE : cache_entry_init_generic(l1_icache_entry_t, cache_entry, phy_addr, L1_ICACHE_TAG_REMAINING_BITS, mem_space, L1_ICACHE_WORDS_PER_LINE) ; break;
 		case L1_DCACHE : cache_entry_init_generic(l1_dcache_entry_t, cache_entry, phy_addr, L1_DCACHE_TAG_REMAINING_BITS, mem_space, L1_DCACHE_WORDS_PER_LINE) ; break;
 		case L2_CACHE  : cache_entry_init_generic(l2_cache_entry_t,  cache_entry, phy_addr, L2_CACHE_TAG_REMAINING_BITS , mem_space , L2_CACHE_WORDS_PER_LINE) ; break;
@@ -270,7 +267,7 @@ int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cac
  * @param line_index : index of the cache line
  */
 int find_empty_slot(cache_t cache_type, void* cache, uint16_t line_index){
-	switch (cache_type){
+	switch (cache_type){ //use the generic macro depending on the type of the cache
 		case L1_ICACHE: find_empty_slot_generic(l1_icache_entry_t, cache, line_index, L1_ICACHE_WAYS);break;
 		case L1_DCACHE: find_empty_slot_generic(l1_dcache_entry_t, cache, line_index, L1_DCACHE_WAYS);break;
 		case L2_CACHE : find_empty_slot_generic(l2_cache_entry_t , cache, line_index, L2_CACHE_WAYS) ;break;
@@ -280,7 +277,7 @@ int find_empty_slot(cache_t cache_type, void* cache, uint16_t line_index){
 #define evict_generic(TYPE, cache, LINE_INDEX, WAYS)    {                                                \
 	unsigned max_age = 0 ;                                                                               \
 	TYPE* entry_to_evict = NULL;                                                                         \
-	foreach_way(way, WAYS){                                                                              \
+	foreach_way(way, WAYS){ /*iterate on every way to find the entry to evict*/                          \
 		TYPE* entry = cache_entry(TYPE, WAYS, LINE_INDEX, way);                                          \
 		if (entry->v && entry->age >= max_age) {                                                         \
 		    max_age = entry->age;                                                                        \
@@ -291,7 +288,7 @@ int find_empty_slot(cache_t cache_type, void* cache, uint16_t line_index){
 		return entry_to_evict;                                                                           \
 	}
 void* evict(cache_t cache_type, void* cache, uint16_t line_index) {
-	switch (cache_type){
+	switch (cache_type){ //use the generic macro depending on the type of the cache
 		case L1_ICACHE: evict_generic(l1_icache_entry_t, cache, line_index, L1_ICACHE_WAYS);break;
 		case L1_DCACHE: evict_generic(l1_dcache_entry_t, cache, line_index, L1_DCACHE_WAYS);break;
 		case L2_CACHE : evict_generic(l2_cache_entry_t , cache, line_index, L2_CACHE_WAYS) ;break;
@@ -307,7 +304,7 @@ void* evict(cache_t cache_type, void* cache, uint16_t line_index) {
  * @param line_index : index of the line to be updated
  */
 void modify_ages(cache_t cache_type,void *cache, uint8_t way, uint16_t line_index){
-	switch (cache_type){ 	// way != NOTHING_FOUND => cold start
+	switch (cache_type){ 	// way != NOTHING_FOUND => cold start //use the generic function depending on the type of the cache
 		case L1_ICACHE: if (way == NOTHING_FOUND) {LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);}break;
 		case L1_DCACHE: if (way == NOTHING_FOUND) {LRU_age_update(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way);}break;
 		case L2_CACHE : if (way == NOTHING_FOUND) {LRU_age_update(l2_cache_entry_t , L2_CACHE_WAYS , line_index, way) }else {LRU_age_increase(l2_cache_entry_t , L2_CACHE_WAYS , line_index, way);}break;
@@ -418,7 +415,7 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
  */
 int move_entry_to_level1(mem_access_t access,void * l1_cache, void * l2_cache, l2_cache_entry_t* l2_entry, const uint32_t phy_addr){
 	
-	switch(access){
+	switch(access){ //use the generic macro depending on the type of the cache
 		case INSTRUCTION: {move_entry_to_level1_generic(access, l1_icache_entry_t, l2_entry,l1_cache, l2_cache, phy_addr, L1_ICACHE_TAG_REMAINING_BITS);}break;
 		case DATA       : {move_entry_to_level1_generic(access, l1_dcache_entry_t, l2_entry,l1_cache, l2_cache, phy_addr, L1_DCACHE_TAG_REMAINING_BITS);}break;
 		default: return ERR_BAD_PARAMETER; break;
@@ -674,7 +671,7 @@ int cache_dump(FILE* output, const void* cache, cache_t cache_type)
     M_REQUIRE_NON_NULL(cache);
 
     fputs("WAY/LINE: V: AGE: TAG: WORDS\n", output);
-    switch (cache_type) {
+    switch (cache_type) { //use the generic macro depending on the type of the cache
     case L1_ICACHE:
         DUMP_CACHE_TYPE(output, l1_icache_entry_t, L1_ICACHE_WAYS,
                         L1_ICACHE_LINES, L1_ICACHE_WORDS_PER_LINE);
