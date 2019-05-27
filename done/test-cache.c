@@ -38,6 +38,8 @@ static void error(const char* pgm, const char* msg)
 }
 
 // ======================================================================
+#define phy_to_int(phy) (uint32_t)(((phy)->phy_page_num << 12) | (phy)->page_offset)
+//=======================================================================
 void execute_command(void *mem_space,
                      const command_t* command,
                      l1_icache_entry_t *l1_icache,
@@ -49,7 +51,8 @@ void execute_command(void *mem_space,
     uint8_t byte;
     uint32_t word;
     void *l1_cache;
-
+    uint32_t phy_addr = phy_to_int(&paddr);
+	printf("=== tag %d, type = %s\n", phy_addr >> 10, (command->order == READ)? "READ": "WRITE");
     switch (command->order) {
     case READ:
         l1_cache = (command->type == INSTRUCTION)? l1_icache: l1_dcache;
@@ -112,7 +115,10 @@ int main(int argc, char *argv[])
             assert(cache_flush(l1_icache, L1_ICACHE) == ERR_NONE);
             assert(cache_flush(l1_dcache, L1_DCACHE) == ERR_NONE);
             assert(cache_flush(l2_cache, L2_CACHE) == ERR_NONE);
-
+			
+			/*//*/
+			program_print(stdout, &pgm);
+			printf("========================\n");
             for_all_lines(line, &pgm) {
                 execute_command(mem_space, line, l1_icache, l1_dcache, l2_cache);
 

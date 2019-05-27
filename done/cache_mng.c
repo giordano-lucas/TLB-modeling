@@ -275,7 +275,7 @@ int find_empty_slot(cache_t cache_type, void* cache, uint16_t line_index){
 		}
 	}                                                                                            
 #define evict_generic(TYPE, cache, LINE_INDEX, WAYS)    {                                                \
-	unsigned max_age = 0 ;                                                                               \
+	unsigned int max_age = 0 ;                                                                           \
 	TYPE* entry_to_evict = NULL;                                                                         \
 	foreach_way(way, WAYS){ /*iterate on every way to find the entry to evict*/                          \
 		TYPE* entry = cache_entry(TYPE, WAYS, LINE_INDEX, way);                                          \
@@ -284,7 +284,7 @@ int find_empty_slot(cache_t cache_type, void* cache, uint16_t line_index){
 		    entry_to_evict = entry;                                                                      \
 			}                                                                                            \
 		}                                                                                                \
-		if (entry_to_evict != NULL) entry_to_evict->v = 0;                                               \
+		if (entry_to_evict != NULL) entry_to_evict->v = 0; /*entry_to_evict should always be != NULL in practice*/   \
 		return entry_to_evict;                                                                           \
 	}
 void* evict(cache_t cache_type, void* cache, uint16_t line_index) {
@@ -333,7 +333,9 @@ int insert_level2(l2_cache_entry_t* cache, l2_cache_entry_t* entry, uint32_t phy
  * initilize an entry with the givin parameters
  */
 #define cache_init_entry_with_param(entry, phy_addr, TAG_REMAINING_BITS, input_cache_line, WORDS_PER_LINE)         \
-	entry.v = 1; entry.age = 0; entry.tag = ((phy_addr) >> (TAG_REMAINING_BITS));                                  \
+	entry.v = 1;                                                                                                   \
+	entry.age = 0;                                                                                                 \ 
+	entry.tag = ((phy_addr) >> (TAG_REMAINING_BITS));                                                              \
 	/*copy content of input entry to entry*/                                                                       \
 	memcpy(entry.line, input_cache_line, WORDS_PER_LINE*sizeof(word_t));
 
@@ -379,7 +381,9 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
 	entry.tag = phy_addr >> TAG_REMAINING_BITS;    /*compute new tag*/                      \
 	memcpy (entry.line, l2_entry->line,L2_CACHE_WORDS_PER_LINE*sizeof(word_t));             \
 	l1_entry = entry; /*final affectation*/                                                 \
-	fprintf(stderr, "*** cast entry : tag = %"PRIx32", new tag = %"PRIx32" et phyaddr = %"PRIx32" \n", l2_entry->tag, l1_entry.tag, phy_addr);
+	fprintf(stderr, "*** cast entry : tag = %"PRIx32", new tag = %"PRIx32" et phyaddr = %"PRIx32" \n", l2_entry->tag, l1_entry.tag, phy_addr);\
+	word_t* iw = l2_entry->line; \
+	for (word_t* w = entry.line; w < entry.line + 4 ; ++w ) {fprintf(stderr,"      **** input = %"PRIx32", output = %"PRIx32" \n", *iw,*w); ++iw;}
 
 
 //====================================================================================================
@@ -399,7 +403,7 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
 #define move_entry_to_level1_generic(access, type, l2_entry, l1_cache, l2_cache, phy_addr, TAG_REMAINING_BITS)  \
 	type l1_entry;    /*create entry */                                                                         \
 	cast_l2_to_l1_generic(type, l1_entry, l2_entry, phy_addr, TAG_REMAINING_BITS); /*cast it*/                  \
-	/* insert new entry in l1_cache and if needed do the error propagation*/                                    \
+	/* insert new entry in l1_cache and if needed, do the error propagation*/                                    \
 	int err = ERR_NONE;                                                                                         \
 	if ((err = insert_level1(access,l1_cache, l2_cache, &l1_entry, phy_addr))!= ERR_NONE) return err; 
 
@@ -484,18 +488,19 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 	if ((err = cache_hit(mem_space, l1_cache, paddr,&p_line,&hit_way,&hit_index, to_l1_cache(access))) != ERR_NONE) return err;//error handling
 	if  (hit_way != HIT_WAY_MISS){//if found found in level 1 nothing to be done, just affect word
 		printf("***HIT WAY L1 \n");
+		printf("*** tag = %"PRIx32" \n", phy_addr >> L1_ICACHE_TAG_REMAINING_BITS);
 		if (access == INSTRUCTION) *word = p_line[extract_word_index(phy_addr, L1_ICACHE_WORDS_PER_LINE)];
 		else                       *word = p_line[extract_word_index(phy_addr, L1_DCACHE_WORDS_PER_LINE)];
 		}
 	else{//not found in l1 => search in l2
 		if((err = cache_hit(mem_space, l2_cache, paddr,&p_line,&hit_way,&hit_index, L2_CACHE)) != ERR_NONE) return err;
 		if (hit_way != HIT_WAY_MISS) { // found in level 2 => move entry to level 1 and affect word
-			printf("***IF");
+			printf("***HIT L2\n");
 			if ((err = move_entry_to_level1(access,l1_cache, l2_cache, cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache), phy_addr))!= ERR_NONE){return err;}//error propagation
 			*word = p_line[extract_word_index(phy_addr,L2_CACHE_WORDS_PER_LINE)];
 			}
 		else { // not found in L2 => search in memory
-			printf("***ELSE");
+			printf("***ELSE \n");
 			if (access == INSTRUCTION){search_in_memory_and_affect(l1_icache_entry_t, L1_ICACHE, L1_ICACHE_WORDS_PER_LINE);}
 			else                      {search_in_memory_and_affect(l1_dcache_entry_t, L1_DCACHE, L1_DCACHE_WORDS_PER_LINE);}
 			}
