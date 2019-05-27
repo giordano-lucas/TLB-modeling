@@ -16,7 +16,7 @@
  */
 #define extract_line_index(phy_addr, WORDS_PER_LINE, NB_LINES) (((phy_addr)/(sizeof(word_t)*(WORDS_PER_LINE))) % (NB_LINES))
 /**
- * @brief extract the line_index from a phy_addr
+ * @brief extract the word_index from a phy_addr
  */
 #define extract_word_index(phy_addr, WORDS_PER_LINE) ((phy_addr)/(sizeof(word_t)) % (WORDS_PER_LINE))
 /**
@@ -30,6 +30,10 @@
 
 
 /*******************************************************************/
+/**
+ * Macros defined as the ones in cache.h but that can be used with any cache name
+ **/
+ 
 // --------------------------------------------------
 #define cache_cast_any(TYPE, CACHE) ((TYPE *)CACHE)
 
@@ -244,7 +248,7 @@ int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cac
 //======================== helper functions cache read ====================
 
 /*flag to say that no empty way has been found */
-#define NOTHING_FOUND -1 
+#define NOTHING_FOUND -1
 /**
  * @brief the generic funcion of find_empty_slot
  * 
