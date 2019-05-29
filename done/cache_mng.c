@@ -309,9 +309,9 @@ void* evict(cache_t cache_type, void* cache, uint16_t line_index) {
  */
 void modify_ages(cache_t cache_type,void *cache, uint8_t way, uint16_t line_index,bool isColdStart){
 	switch (cache_type){
-		case L1_ICACHE: if (!isColdStart) {LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, line_index, way);}break;
-		case L1_DCACHE: if (!isColdStart) {LRU_age_update(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way) }else {LRU_age_increase(l1_dcache_entry_t, L1_DCACHE_WAYS, line_index, way);}break;
-		case L2_CACHE : if (!isColdStart) {LRU_age_update(l2_cache_entry_t , L2_CACHE_WAYS , line_index, way) }else {LRU_age_increase(l2_cache_entry_t , L2_CACHE_WAYS , line_index, way);}break;
+		case L1_ICACHE: if (!isColdStart) {LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, way, line_index ) }else {LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, way, line_index);}break;
+		case L1_DCACHE: if (!isColdStart) {LRU_age_update(l1_dcache_entry_t, L1_DCACHE_WAYS, way, line_index) }else {LRU_age_increase(l1_dcache_entry_t, L1_DCACHE_WAYS, way, line_index);}break;
+		case L2_CACHE : if (!isColdStart) {LRU_age_update(l2_cache_entry_t , L2_CACHE_WAYS , way, line_index) }else {LRU_age_increase(l2_cache_entry_t , L2_CACHE_WAYS , way, line_index);}break;
 		default         : fprintf(stderr, "wrong instance of mem access at modify ages"); break;
 		}
 	}
@@ -450,6 +450,7 @@ int move_entry_to_level1(mem_access_t access,void * l1_cache, void * l2_cache, l
 	if ((err = insert_level1(access,l1_cache, l2_cache, &entry,phy_addr))!= ERR_NONE) return err; /*error propagation*/     \
 	*word = entry.line[extract_word_index(phy_addr,WORDS_PER_LINE)]; /*affectation*/                                        \
 	}
+	
 
 //=========================================================================
 /**
@@ -502,9 +503,10 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 	else{//not found in l1 => search in l2
 		if((err = cache_hit(mem_space, l2_cache, paddr,&p_line,&hit_way,&hit_index, L2_CACHE)) != ERR_NONE) return err;
 		if (hit_way != HIT_WAY_MISS) { // found in level 2 => move entry to level 1 and affect word
+			*word = p_line[extract_word_index(phy_addr,L2_CACHE_WORDS_PER_LINE)];
 			printf("***HIT L2\n");
 			if ((err = move_entry_to_level1(access,l1_cache, l2_cache, cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache), phy_addr))!= ERR_NONE){return err;}//error propagation
-			*word = p_line[extract_word_index(phy_addr,L2_CACHE_WORDS_PER_LINE)];
+			
 			}
 		else { // not found in L2 => search in memory
 			printf("***ELSE \n");
@@ -593,18 +595,20 @@ int cache_write(void * mem_space,phy_addr_t * paddr, void * l1_cache,
 	
 	if ((err = cache_hit(mem_space, l1_cache, paddr,&p_line,&hit_way,&hit_index, L1_DCACHE)) != ERR_NONE) return err;//error handling
 	if  (hit_way != HIT_WAY_MISS){//if found found in level 1
-		  word_t* line = cache_line_any(l1_dcache_entry_t, L1_DCACHE_WAYS, hit_index, hit_way, l1_cache);
+		  l1_dcache_entry_t entry = *cache_entry_any(l1_dcache_entry_t, L1_DCACHE_WAYS, hit_index, hit_way, l1_cache);
+		  word_t* line = entry.line;
 		  line[extract_word_index(phy_addr,L1_DCACHE_WORDS_PER_LINE)] = *word; //update word
-		  // pourquoi réinsérer ?
-		  modify_ages(L1_DCACHE, l1_cache, hit_way, hit_index, true);//update ages
+		  cache_insert(hit_index, hit_way, &entry, l1_cache, L1_DCACHE);
+		  modify_ages(L1_DCACHE, l1_cache, hit_way, hit_index, true); 
 		  write_memory(mem_space, phy_addr,line); // update memory 
 		}
 	else{//not found in l1 => search in l2
 		if((err = cache_hit(mem_space, l2_cache, paddr,&p_line,&hit_way,&hit_index, L2_CACHE)) != ERR_NONE) return err;
 		if (hit_way != HIT_WAY_MISS) { // found in level 2 => find line, update ages,  move entry to level 1 , update memory
-			word_t* line = cache_line_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache);
+			l2_cache_entry_t entry = *cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache);
+			word_t* line = entry.line;
 			line[extract_word_index(phy_addr,L2_CACHE_WORDS_PER_LINE)] = *word; // update word
-			//pourquoi réinsérer ?
+			cache_insert(hit_index, hit_way, &entry, l2_cache, L2_CACHE);
 			modify_ages(L2_CACHE, l2_cache, hit_way, hit_index, true);//update ages
 			if ((err = move_entry_to_level1(DATA,l1_cache, l2_cache, cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache), phy_addr))!= ERR_NONE){return err;}//error propagation
 			write_memory(mem_space, phy_addr,line); // update memory 
