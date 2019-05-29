@@ -249,7 +249,7 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	FILE* f = fopen(master_filename, "r");
 	M_REQUIRE(f != NULL || handle_exit_error(f, memory), ERR_BAD_PARAMETER, "cannot open file : %s", master_filename);
 	int err = ERR_NONE;
-	fscanf(f, "%zu", mem_capacity_in_bytes);
+	M_REQUIRE( fscanf(f, "%zu", mem_capacity_in_bytes) == 1, ERR_IO, "Error when reading mem_capacity_in_bytes %c", ' ');
 	M_REQUIRE(fgetc(f) == '\n' || handle_exit_error(f, memory), ERR_IO, "Didn't get a new line : error %c", " ");
 	//alloc memory first
 	*memory = calloc(*mem_capacity_in_bytes, sizeof(byte_t));
@@ -266,7 +266,7 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	
 	for(size_t i =0; i < nb_tables ; i++){ //for each of these table
 		uint32_t location;
-		fscanf(f, "%" PRIX32, &location); //read the physical address of the table to put
+		M_REQUIRE( fscanf(f, "%" PRIX32, &location)== 1, ERR_IO, "Error when reading location %c", ' '); //read the physical address of the table to put
 		M_REQUIRE(fgetc(f) == ' ' || handle_exit_error(f, memory), ERR_BAD_PARAMETER, "There should be a single space between the physical address and the path to the file %c", ' ' ); //removes the space between the address and the path to the file
 		char pageLocation[maxFileSize];  
 		fgets(pageLocation, maxFileSize, f); //gets the path to the file
