@@ -103,12 +103,12 @@ int program_print(FILE* output, const program_t* program){
 		// validation of com
 		M_REQUIRE(com.order == READ || com.order == WRITE, ERR_BAD_PARAMETER, "ORDER is neither read nor write%c", ' ');
 		M_REQUIRE(com.type == INSTRUCTION || com.type == DATA, ERR_BAD_PARAMETER, "TYPE is neither Instruction nor Data%c", ' ');
-		M_REQUIRE(com.data_size == 1 || com.data_size == 4, ERR_BAD_PARAMETER, "DATA_SIZE is neither 1 nor 4%c", ' ');
+		M_REQUIRE(com.data_size == sizeof(byte_t) || com.data_size == sizeof(word_t), ERR_BAD_PARAMETER, "DATA_SIZE is neither 1 nor 4%c", ' ');
 		
 		// processing
 		char ord = (com.order == READ) ? 'R' : 'W'; //checks if read or write
 		char type = (com.type == INSTRUCTION) ? 'I' : 'D'; //checks if instruction or data
-		char size = (com.data_size == 1) ? 'B' : 'W';  //checks if size of byte or word
+		char size = (com.data_size == sizeof(byte_t)) ? 'B' : 'W';  //checks if size of byte or word
 		uint64_t addr = virt_addr_t_to_uint64_t(&com.vaddr); //convers the virtual address to a uint64
 		fprintf(output, "%c %c", ord, type); //prints the order and the type
 		
@@ -205,7 +205,7 @@ int program_add_command(program_t* program, const command_t* command){
 	M_REQUIRE(!(command->order == READ && command->write_data > 0), ERR_BAD_PARAMETER, "No data size when reading, data size : %d, order : %d", command->data_size, command->order);
 	M_REQUIRE(command->write_data <= BYTE_MAX || command->data_size == sizeof(word_t), ERR_BAD_PARAMETER, "Data size is a byte but the actual size is bigger than a byte" ,"");
 	//incorect size
-	 M_REQUIRE((command->type == INSTRUCTION)? (command->data_size == sizeof(word_t)): (command->data_size == 1 || command->data_size == sizeof(word_t)), ERR_BAD_PARAMETER, "Data size = %zu, type = %d, must be of size %lu for Instructions and of size 1 or %lu for Data", command->data_size, command->type, sizeof(word_t), sizeof(word_t));
+	 M_REQUIRE((command->type == INSTRUCTION)? (command->data_size == sizeof(word_t)): (command->data_size == sizeof(byte_t) || command->data_size == sizeof(word_t)), ERR_BAD_PARAMETER, "Data size = %zu, type = %d, must be of size %lu for Instructions and of size 1 or %lu for Data", command->data_size, command->type, sizeof(word_t), sizeof(word_t));
 	// Cannot write with an instruction
 	 M_REQUIRE(!(command->type == INSTRUCTION && command->order == WRITE), ERR_BAD_PARAMETER, "Cannot write with an instruction%c", ' ');
 	//invalid  virtual addr 
@@ -226,6 +226,8 @@ int program_add_command(program_t* program, const command_t* command){
 	
 //==================================== READ PART ===========================================
 #define MAX_SIZE_BUFFER 20
+#define VALID 1
+#define INVALID 0
 // the longest char we can read by calling readUntilNextWhiteSpace is the address that is 
 // represented on 16 bits but readUntilNextWhiteSpace also include "@0x" in front of the address and maybe '\n' at the end if it was
 // the end of the line  which leads to 16+3+1 = 20 character maximum
@@ -249,7 +251,7 @@ int readCommand(FILE* input, command_t* command, int* validCommand){
 	int err;
 	if ( (err = readUntilNextWhiteSpace(input,buffer, &sizeRead))!= ERR_NONE) return err;
 	M_REQUIRE(sizeRead == 1, ERR_IO, "First character of a line must be 1 (and then followed by a space(' '))%c", ' ');
-	*validCommand = 1; //command is supposed valid
+	*validCommand = VALID; //command is supposed valid
     
 	switch (buffer[0]) {
         case 'R':
@@ -259,7 +261,7 @@ int readCommand(FILE* input, command_t* command, int* validCommand){
 			if ((err = handleWrite(command, input))!= ERR_NONE) return err; //error propagation
 			break;
 		case -1: //end of file character
-			*validCommand = 0; //if we are at the end of file : dont add a command
+			*validCommand = INVALID; //if we are at the end of file : dont add a command
 			break;
         default:
 			M_REQUIRE(0,ERR_IO, "First character of a line should be R or W and not %zu", (size_t)buffer[0] ); 
@@ -328,7 +330,7 @@ int readUntilNextWhiteSpace(FILE* input, char buffer[], size_t* nbOfBytes){
 	 * @return : 1 if the whole string contains only hexadecimal characters, else 0
 	 */
 int isHexString(char string[], size_t start, size_t length){
-	int isHexChar = 1;
+	int isHexChar = 1; //true at first
 	for(int i= start; i<length; i++){ //iterates on full string to check if is an xdigit
 		isHexChar = isHexChar && isxdigit(string[i]);
 	}
@@ -341,12 +343,13 @@ int isHexString(char string[], size_t start, size_t length){
 	 * @param : input : 
 	 * @return : Either an error code or ERR_NONE
 	 */
+	 #define MAX_TYPE_SIZE 2
 int handleTypeSize(command_t* command, FILE* input){
 	char buffer[MAX_SIZE_BUFFER];
 	int err = ERR_NONE; //used for error propagation
 	size_t s;
 	if ((err = readUntilNextWhiteSpace(input, buffer, &s))!= ERR_NONE) return err; // error propagation
-	M_REQUIRE(s <= 2 && s>0, ERR_BAD_PARAMETER, "SIZE OF TYPE MUST BE INF TO 2%c", ' ');
+	M_REQUIRE(s <= MAX_TYPE_SIZE && s>0, ERR_BAD_PARAMETER, "SIZE OF TYPE MUST BE INF TO 2%c", ' ');
 	buffer[s] = '\0';  //sets the last char in the buffer to \0 in order to use strcmp that compares strings and returns 0 if they are equal
 	mem_access_t t;
 	size_t data_s;
@@ -370,16 +373,18 @@ int handleTypeSize(command_t* command, FILE* input){
 	command->data_size = data_s;
 	return ERR_NONE;
 }
-
+#define VIRT_ADDR_MIN_LENGTH 4
+#define VIRT_ADDR_MAX_LENGTH 20
+#define VIRT_ADDR_PADDING 3
 int handle_virt_addr(char buffer[], size_t* s, FILE* input, command_t* command){
 	int err  = ERR_NONE; // used for error propagation
 	if ((err = readUntilNextWhiteSpace(input, buffer, s)) != ERR_NONE) return err; //error propagation
-	M_REQUIRE(*s >= 4 && *s <= 20, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
+	M_REQUIRE(*s >= VIRT_ADDR_MIN_LENGTH && *s <= VIRT_ADDR_MAX_LENGTH, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
 	M_REQUIRE(buffer[0] == '@', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
 	M_REQUIRE(buffer[1] == '0', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
 	M_REQUIRE(buffer[2] == 'x', ERR_BAD_PARAMETER, "virt addr must start with @0x%c", ' ');
 	M_REQUIRE(buffer[*s-1] == '\n', ERR_BAD_PARAMETER, "virt addr must end with newline%c", ' ');
-	for(int i =0; i < 3; i++){ //fills the @0x with spaces so strtoull can parse the hex
+	for(int i =0; i < VIRT_ADDR_PADDING; i++){ //fills the @0x with spaces so strtoull can parse the hex
 		buffer[i] = ' ';
 	}
 	buffer[*s] = '\0';
@@ -415,6 +420,9 @@ int handleRead(command_t* command, FILE* input){
 	 * Same as the handleRead method, but also fills in the data_size using readUntilNextWhiteSpace
 	 * 
 	 */
+	 #define WRITE_DATA_MIN_LENGTH 4
+	 #define WRITE_DATA_MAX_LENGTH 11
+	 #define WRITE_DATA_PADDING 2
 int handleWrite(command_t* command, FILE* input){
 	int err = ERR_NONE; // used for error propagation
 	//Suppose qu'il a déjà lu le R / W
@@ -424,11 +432,11 @@ int handleWrite(command_t* command, FILE* input){
 	size_t s =0;
 	//=======================WRITE_DATA=========================
 	if ((err = readUntilNextWhiteSpace(input, buffer, &s))!= ERR_NONE) return err; // error propagation
-	M_REQUIRE(s >= 4 && s <= 8+3, ERR_BAD_PARAMETER, "SIZE OF virt_addr must be greater than 4%c", ' ');
-	M_REQUIRE(buffer[0] == '0', ERR_BAD_PARAMETER, "virt addr must start with 0x%c", ' ');
-	M_REQUIRE(buffer[1] == 'x', ERR_BAD_PARAMETER, "virt addr must start with 0x%c", ' ');
+	M_REQUIRE(s >= WRITE_DATA_MIN_LENGTH && s <= WRITE_DATA_MAX_LENGTH, ERR_BAD_PARAMETER, "SIZE OF Write_data must be greater than 4%c", ' ');
+	M_REQUIRE(buffer[0] == '0', ERR_BAD_PARAMETER, "Write_data must start with 0x%c", ' ');
+	M_REQUIRE(buffer[1] == 'x', ERR_BAD_PARAMETER, "Write_data must start with 0x%c", ' ');
 	
-	for(int i =0; i < 2; i++){ //fills with spaces so the parser can work without the 0x
+	for(int i =0; i < WRITE_DATA_PADDING; i++){ //fills with spaces so the parser can work without the 0x
 		buffer[i] = ' ';
 	}
 	buffer[s] = '\0';
