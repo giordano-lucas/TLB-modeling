@@ -351,7 +351,7 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
 	bool isColdStart = true;
 	//***********************************************************************************************changer cette ligne
 	uint16_t line_index = extract_line_index(phy_addr, L1_ICACHE_WORDS_PER_LINE, L1_ICACHE_LINES);
-	fprintf(stderr, "++++++++++++ index l1= %d", line_index);
+	fprintf(stderr, "++++++++++++ index l1= %"PRIx32"\n", line_index);
 	int cache_way = find_empty_slot(cache_type, l1_cache, line_index); //find a place
 	if (cache_way == NOTHING_FOUND){// there is no empty slot in l1 cache => evict an entry and move it to L2
 		void* evicted_entry = evict(cache_type, l1_cache, line_index); //eviction
@@ -365,7 +365,7 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
 		}
     //insert in l1 cache (here we are sure that there is at least an empt way)
     if (cache_way == NOTHING_FOUND) cache_way = find_empty_slot(cache_type, l1_cache, line_index); 
-    fprintf(stdout, "\n*** CACHE WAY : %d; CACHE LINE : %d ; TAG : %"PRIx32" \n", cache_way, line_index, cast_l1_entry(access,entry)->tag);
+    fprintf(stdout, "\n*** CACHE WAY : %d; CACHE LINE : %d ; TAG : %"PRIx32" ; phyaddr : page num = %"PRIx32" et page_offset = %"PRIx32" \n", cache_way, line_index, cast_l1_entry(access,entry)->tag,phy_addr >> PAGE_OFFSET, phy_addr & 0b111111111111);
     if ((err = cache_insert(line_index,cache_way, cast_l1_entry(access,entry), l1_cache,cache_type))!= ERR_NONE) return err; // error propagation
 	modify_ages(cache_type,l1_cache, cache_way,line_index, isColdStart);//update ages
 	return ERR_NONE;
@@ -388,7 +388,7 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
 	entry.tag = phy_addr >> TAG_REMAINING_BITS;    /*compute new tag*/                      \
 	memcpy (entry.line, l2_entry->line,L2_CACHE_WORDS_PER_LINE*sizeof(word_t));             \
 	l1_entry = entry; /*final affectation*/                                                 \
-	fprintf(stderr, "*** cast entry : tag = %"PRIx32", new tag = %"PRIx32" et phyaddr = %"PRIx32" \n", l2_entry->tag, l1_entry.tag, phy_addr);\
+	fprintf(stderr, "*** cast entry : tag = %"PRIx32", new tag = %"PRIx32" et phyaddr : page num = %"PRIx32" et page_offset = %"PRIx32" \n", l2_entry->tag, l1_entry.tag, phy_addr >> PAGE_OFFSET, phy_addr & 0b111111111111);\
 	word_t* iw = l2_entry->line; \
 	for (word_t* w = entry.line; w < entry.line + 4 ; ++w ) {fprintf(stderr,"      **** input = %"PRIx32", output = %"PRIx32" \n", *iw,*w); ++iw;}
 
@@ -503,8 +503,8 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 		if((err = cache_hit(mem_space, l2_cache, paddr,&p_line,&hit_way,&hit_index, L2_CACHE)) != ERR_NONE) return err;
 		if (hit_way != HIT_WAY_MISS) { // found in level 2 => move entry to level 1 and affect word
 			printf("***HIT L2\n");
-			if ((err = move_entry_to_level1(access,l1_cache, l2_cache, cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache), phy_addr))!= ERR_NONE){return err;}//error propagation
 			*word = p_line[extract_word_index(phy_addr,L2_CACHE_WORDS_PER_LINE)];
+			if ((err = move_entry_to_level1(access,l1_cache, l2_cache, cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache), phy_addr))!= ERR_NONE){return err;}//error propagation
 			}
 		else { // not found in L2 => search in memory
 			printf("***ELSE \n");

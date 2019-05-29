@@ -10,10 +10,10 @@
  * @param WAY_INDEX : index of the way that needs to be reset
  * @param LINE_INDEX : index of the line of the cache that needs to be updated
  */
-#define LRU_age_increase(TYPE, WAYS, WAY_INDEX, LINE_INDEX)                     \
-	foreach_way(way, WAYS){	                                                    \
-	        TYPE* entry = cache_entry(TYPE, WAYS, LINE_INDEX, way);             \
-			if (way == (WAY_INDEX)) entry->age = 0;                            \
+#define LRU_age_increase(TYPE, WAYS, WAY_INDEX, LINE_INDEX)                       \
+	foreach_way(way, WAYS){	                                                      \
+	        TYPE* entry = cache_entry(TYPE, WAYS, LINE_INDEX, way);               \
+			if (way == (WAY_INDEX)) entry->age = 0;                               \
 			else if (entry->age < (WAYS)-1) entry->age++;                         \
 		}
 
