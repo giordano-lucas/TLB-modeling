@@ -79,6 +79,22 @@ node_t* createNode(const list_content_t* value, node_t* previous, node_t*last){
 
 //===========================================================
 /**
+ * @brief helper function for push back and push front
+ * @param pushPosition : the position where to push : back or front
+ * @param otherExtremity : back if pushPosition is front and conversly
+ * @param nodeToModify : next in case of push_back and previous if push_front
+ */
+#define push_helper(pushPosition, otherExtremity, nodeToModify)                                                            \
+    if (newNode == NULL) return NULL; /*error case (propagation)*/                                                         \
+	/*update list */                                                                                                       \
+	if (is_empty_list(this)) (this->otherExtremity) = newNode; /* if the list is empty then the */                         \
+															   /*otherExtremity becomes the new node */                    \
+	else (this->pushPosition)->nodeToModify = newNode; 	       /* if the list is non empty then we update the pointer */   \
+															   /*of the old element at pushPosition of the list*/          \
+	this->pushPosition = newNode; /* push element */                                                                       \
+	return newNode;
+//===========================================================
+/**
  * @brief add a new value at the end of the list
  * @param this list where to add to
  * @param value value to be added
@@ -91,14 +107,7 @@ node_t* push_back(list_t* this, const list_content_t* value){
 	node_t* newNode = createNode(value, this->back,NULL);
 	// previous = this->back => make the last node points to the new node
 	// next = NULL;          => newNode is the last node 
-	
-	if (newNode == NULL) return NULL; //error case (propagation)
-	//update list
-	if (is_empty_list(this)) (this->front) = newNode; // if the list is empty then the front becomes the new node
-	else (this->back)->next = newNode; 	              // if the list is non empty then we update the pointer of the old last element of the list
-	
-	this->back = newNode; // push back
-	return newNode;
+	push_helper(back, front, next);
 }
 
 /**
@@ -114,36 +123,35 @@ node_t* push_front(list_t* this, const list_content_t* value){
 	node_t* newNode = createNode(value, NULL, this->front);
 	// previous = NULL => newNode is the first node
 	// next = this->front => make the new node points to the first Node of the list
-	
-	
-	if (newNode == NULL) return NULL; //error case (propagation)
-	//update list
-	if (is_empty_list(this)) (this->back) = newNode; // if the list is empty then the back becomes the new node
-	else (this->front)->previous = newNode;          // if the list is non empty then we update the pointer of the old first element of the list
-	
-	this->front = newNode; // push front
-	return newNode;
+	push_helper(front, back, previous)
 	}
-
+//================================================================================================
+/**
+ * @brief helper function for pop back and pop front
+ * @param pushPosition : the position where to pop : back or front
+ * @param nodeNewExtremity : previous in case of push_back and next in case of push front
+ * @param nodeToModify : next in case of pop_back and previous if pop_front
+ */
+#define pop_helper(popPosition, nodeNewExtremity, newEmptyNode)                                \
+    /*if empty nothing to be removed*/                                                         \
+	if(this == NULL || is_empty_list(this)) return;                                            \
+	/* case list.size = 1 */                                                                   \
+	if (this->front == this->back) clear_list(this); /* make list empty */                     \
+	/* case list.size > 1*/                                                                    \
+	else {                                                                                     \
+		node_t* newExtremity = (this->popPosition)->nodeNewExtremity;                          \
+		newExtremity->newEmptyNode = NULL; /* new Extremity needs to be updated  */            \
+		freeNode(this->popPosition); /* free last element */                                   \
+		/*update list*/                                                                        \
+		this->popPosition = newExtremity;                                                      \
+		}
+//================================================================================================
 /**
  * @brief remove the last value
  * @param this list to remove from
  */
 void pop_back(list_t* this){
-	// if empty nothing to be removed
-	if(this == NULL || is_empty_list(this)) return;
-	
-	// case list.size = 1
-	if (this->front == this->back) clear_list(this); // make list empty
-	// case list.size > 1
-	else {
-		node_t* newEnd = (this->back)->previous;
-		newEnd->next = NULL; // end.previous has no next element
-		freeNode(this->back); // free last element
-		//update list
-		this->back = newEnd;
-		}
-	
+	pop_helper(back, previous, next);
 	}
 
 /**
@@ -151,19 +159,7 @@ void pop_back(list_t* this){
  * @param this list to remove from
  */
 void pop_front(list_t* this){
-	// if empty nothing to be removed
-	if(this == NULL || is_empty_list(this)) return;
-	
-	// case list.size = 1
-	if (this->front == this->back) clear_list(this); // make list empty
-	// case list.size > 1
-	else {
-		node_t* newStart = (this->front)->next;
-		newStart->previous = NULL; // newStart has no previvous element
-		freeNode(this->front); // free frist element (element to remove)
-		//update list
-		this->front = newStart;
-		}
+	pop_helper(front, next, previous);
 	}
 
 /**

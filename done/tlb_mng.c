@@ -142,7 +142,8 @@ int tlb_search( const void * mem_space, const virt_addr_t * vaddr,  phy_addr_t *
 			M_REQUIRE(0 <= head && head < TLB_LINES, ERR_BAD_PARAMETER, "Head should be in TLB , actual value : %zu" , head);
 			tlb_entry_t tlb_entr; //initalizes the new entry corresponding to the paddr we just computed
 			if ((err = tlb_entry_init(vaddr,paddr, &tlb_entr))!= ERR_NONE) return err ;
-			tlb[head]  = tlb_entr; //places the entry we initialized into the head we created
+			
+			tlb_insert(head, &tlb_entr,tlb);//places the entry we initialized into the head we created
 			replacement_policy->move_back(replacement_policy->ll, (replacement_policy->ll)->front); //moves back the head we created into the linked list, void method so no error propagation
 		}
 		return ERR_NONE;
