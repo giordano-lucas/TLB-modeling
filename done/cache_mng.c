@@ -590,13 +590,13 @@ int cache_write(void * mem_space,phy_addr_t * paddr, void * l1_cache,
 	const uint32_t * p_line = 0;
 	uint8_t hit_way = 0;
 	uint16_t hit_index = 0;
-	/*
+	
 	if ((err = cache_hit(mem_space, l1_cache, paddr,&p_line,&hit_way,&hit_index, L1_DCACHE)) != ERR_NONE) return err;//error handling
 	if  (hit_way != HIT_WAY_MISS){//if found found in level 1
 		  word_t* line = cache_line_any(l1_dcache_entry_t, L1_DCACHE_WAYS, hit_index, hit_way, l1_cache);
 		  line[extract_word_index(phy_addr,L1_DCACHE_WORDS_PER_LINE)] = *word; //update word
 		  // pourquoi réinsérer ?
-		  modify_ages(L1_DCACHE, l1_cache, hit_way, hit_index);//update ages
+		  modify_ages(L1_DCACHE, l1_cache, hit_way, hit_index, true);//update ages
 		  write_memory(mem_space, phy_addr,line); // update memory 
 		}
 	else{//not found in l1 => search in l2
@@ -605,7 +605,7 @@ int cache_write(void * mem_space,phy_addr_t * paddr, void * l1_cache,
 			word_t* line = cache_line_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache);
 			line[extract_word_index(phy_addr,L2_CACHE_WORDS_PER_LINE)] = *word; // update word
 			//pourquoi réinsérer ?
-			modify_ages(L2_CACHE, l2_cache, hit_way, hit_index);//update ages
+			modify_ages(L2_CACHE, l2_cache, hit_way, hit_index, true);//update ages
 			if ((err = move_entry_to_level1(DATA,l1_cache, l2_cache, cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache), phy_addr))!= ERR_NONE){return err;}//error propagation
 			write_memory(mem_space, phy_addr,line); // update memory 
 			}
@@ -616,7 +616,7 @@ int cache_write(void * mem_space,phy_addr_t * paddr, void * l1_cache,
 			write_memory(mem_space, phy_addr,line); // update memory 
 			// comment mettre à jour à partir de la mémoire ??????????????????????????????????????????????????'
 			}
-		}*/
+		}
 	return ERR_NONE;
 	}
 
