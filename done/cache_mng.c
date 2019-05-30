@@ -301,11 +301,11 @@ void* evict(cache_t cache_type, void* cache, uint16_t line_index) {
  * @param way        : way where a place has been found to put the line or NOTHING_FOUND if no place has been found
  * @param line_index : index of the line to be updated
  */
-void modify_ages(cache_t cache_type,void *cache, uint8_t way, uint16_t line_index,bool isColdStart){
+void modify_ages(cache_t cache_type,void *cache, uint8_t Way, uint16_t Line_index,bool isColdStart){
 	switch (cache_type){
-		case L1_ICACHE: if (!isColdStart) {LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, way, line_index ) }else {LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, way, line_index);}break;
-		case L1_DCACHE: if (!isColdStart) {LRU_age_update(l1_dcache_entry_t, L1_DCACHE_WAYS, way, line_index) }else {LRU_age_increase(l1_dcache_entry_t, L1_DCACHE_WAYS, way, line_index);}break;
-		case L2_CACHE : if (!isColdStart) {LRU_age_update(l2_cache_entry_t , L2_CACHE_WAYS , way, line_index) }else {LRU_age_increase(l2_cache_entry_t , L2_CACHE_WAYS , way, line_index);}break;
+		case L1_ICACHE: if (!isColdStart) {LRU_age_update(l1_icache_entry_t, L1_ICACHE_WAYS, Way, Line_index) }else {LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, Way, Line_index);}break;
+		case L1_DCACHE: if (!isColdStart) {LRU_age_update(l1_dcache_entry_t, L1_DCACHE_WAYS, Way, Line_index) }else {LRU_age_increase(l1_dcache_entry_t, L1_DCACHE_WAYS, Way, Line_index);}break;
+		case L2_CACHE : if (!isColdStart) {LRU_age_update(l2_cache_entry_t , L2_CACHE_WAYS , Way, Line_index) }else {LRU_age_increase(l2_cache_entry_t , L2_CACHE_WAYS , Way, Line_index);}break;
 		default         : fprintf(stderr, "wrong instance of mem access at modify ages"); break;
 		}
 	}
