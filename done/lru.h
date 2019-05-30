@@ -13,8 +13,11 @@
 #define LRU_age_increase(TYPE, WAYS, WAY_INDEX, LINE_INDEX)                       \
 	foreach_way(way, WAYS){	                                                      \
 	        TYPE* entry = cache_entry(TYPE, WAYS, LINE_INDEX, way);               \
-			if (way == (WAY_INDEX)) entry->age = 0;                               \
-			else if (entry->age < (WAYS)-1) entry->age++;                         \
+			if (entry->v == 1){                                                   \
+				if (way == (WAY_INDEX)) {entry->age = 0;fprintf(stderr,"@@@@@@@@@@@@\n");}                         \
+			    else if (entry->age < ((WAYS)-1)) {entry->age+=1;fprintf(stderr,"***********\n");}                \
+				}                                                                 \
+			fprintf(stderr, "LRU_AGE_INCREASE : valid = %d, way = %d, line index = %"PRIx32", age =  %d \n", entry->v, way, LINE_INDEX, entry->age);\
 		}
 
 /**
@@ -25,9 +28,12 @@
  * @param LINE_INDEX : index of the line of the cache that needs to be updated
  */
 #define LRU_age_update(TYPE, WAYS, WAY_INDEX, LINE_INDEX)                       \
-	int compare_age = cache_age(TYPE, WAYS, LINE_INDEX, WAY_INDEX);             \
+	uint8_t compare_age = cache_age(TYPE, WAYS, LINE_INDEX, WAY_INDEX);         \
 	foreach_way(way, WAYS){	                                                    \
 		    TYPE* entry = cache_entry(TYPE, WAYS, LINE_INDEX, way);             \
-			if (way == (WAY_INDEX)) entry->age = 0;                            \
-			else if (entry->age < compare_age) entry->age++;                    \
+		    if (entry->v == 1){                                                 \
+				if (way == (WAY_INDEX)) {entry->age = 0;fprintf(stderr,"@@@@@@@@@@@@\n"); }                      \
+				else if (entry->age < compare_age) {entry->age++;  fprintf(stderr,"***********\n");}            \
+			}                                                                   \
+			fprintf(stderr, "LRU_AGE_UPDATE : valid = %d, way = %d, line index = %"PRIx32", age =  %d \n", entry->v, way, LINE_INDEX, entry->age);\
 		}

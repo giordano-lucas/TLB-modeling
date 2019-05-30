@@ -10,7 +10,7 @@
 /**
  * @brief convert a paddr_t into a uint32t
  */
-#define phy_to_int(phy) (uint32_t)(((phy)->phy_page_num << PAGE_OFFSET) | (phy)->page_offset)
+#define phy_to_int(phy) ((uint32_t)(((phy)->phy_page_num << PAGE_OFFSET) | (phy)->page_offset))
 /**
  * @brief extract the line_index from a phy_addr
  */
@@ -22,7 +22,7 @@
 /**
  * @brief cast an l1 void* entry to the type given by access
  */
-#define cast_l1_entry(access, entry) ( ((access) == INSTRUCTION)? ((l1_icache_entry_t*)(entry)): ((l1_icache_entry_t*)(entry)))
+#define cast_l1_entry(access, entry) ( ((access) == INSTRUCTION)? ((l1_icache_entry_t*)(entry)): ((l1_dcache_entry_t*)(entry)))
 /**
  * @brief return the instance of cache_type_t given by access 
  */
@@ -72,7 +72,7 @@
  * it first test the overflow of sizeof(type)*NB_LINE*WAYS
  */
 #define flush_generic(type, cache, NB_LINES, WAYS)                                                                   \
-	 M_REQUIRE(((NB_LINES) < SIZE_MAX/(WAYS)), ERR_SIZE, "Could not memset : overflow, %c", " ");                    \
+	 M_REQUIRE(((NB_LINES) <= SIZE_MAX/(WAYS)), ERR_SIZE, "Could not memset : overflow, %c", " ");                    \
 	 M_REQUIRE((((NB_LINES)*(WAYS)) < SIZE_MAX/sizeof(type)), ERR_SIZE, "Could not memset : overflow, %c", " ");     \
 	 memset(cache , 0, sizeof(type)*(NB_LINES)*(WAYS));                                                              
 //=========================================================================
@@ -170,6 +170,12 @@ int cache_hit (const void * mem_space, void * cache, phy_addr_t * paddr, const u
 }
 
 //=========================================================================
+#define cache_insert_generic(TYPE, WAYS, NB_LINES)                                                                              \
+    /*verify that the way and lines are valid */                                                                                \
+	M_REQUIRE(cache_way < WAYS && cache_line_index < NB_LINES, ERR_BAD_PARAMETER, "cache way and index have to match %c", ' '); \
+	*cache_entry(TYPE,WAYS, cache_line_index, cache_way ) = *(TYPE*)cache_line_in; \
+	return ERR_NONE;
+//=========================================================================
 /**
  * @brief Insert an entry to a cache.
  *
@@ -188,23 +194,11 @@ int cache_insert(uint16_t cache_line_index,uint8_t cache_way,const void * cache_
 	M_REQUIRE(L1_ICACHE <= cache_type && cache_type <= L2_CACHE, ERR_BAD_PARAMETER, "cache type is not a valid value : %d", cache_type);
 	
 	switch (cache_type) { //use the generic macro depending on the type of the cache
-         case L1_ICACHE : {
-		 M_REQUIRE(cache_way < L1_ICACHE_WAYS && cache_line_index < L1_ICACHE_LINES, ERR_BAD_PARAMETER, "cache way and index have to match with  L1_ICACHE%c", ' ');//verify that the way is in the cache
-		 *cache_entry(l1_icache_entry_t,L1_ICACHE_WAYS, cache_line_index, cache_way ) = *(l1_icache_entry_t*)cache_line_in;
-		 return ERR_NONE;}
-         case L1_DCACHE :
-         M_REQUIRE(cache_way < L1_DCACHE_WAYS && cache_line_index < L1_DCACHE_LINES, ERR_BAD_PARAMETER, "cache way and index have to match with  L1_DCACHE%c", ' ');
-         *cache_entry(l1_dcache_entry_t,L1_DCACHE_WAYS, cache_line_index, cache_way ) = *(l1_dcache_entry_t*)cache_line_in;
-	     
-         return ERR_NONE;
-         case L2_CACHE  :
-         M_REQUIRE(cache_way < L2_CACHE_WAYS && cache_line_index < L2_CACHE_LINES, ERR_BAD_PARAMETER, "cache way and index have to match with  L2_CACHE%c", ' ');
-         *cache_entry(l2_cache_entry_t,L2_CACHE_WAYS, cache_line_index, cache_way ) = *(l2_cache_entry_t*)cache_line_in;
-        
-         return ERR_NONE;
+         case L1_ICACHE : cache_insert_generic(l1_icache_entry_t, L1_ICACHE_WAYS, L1_ICACHE_LINES); break;
+         case L1_DCACHE : cache_insert_generic(l1_dcache_entry_t, L1_DCACHE_WAYS, L1_DCACHE_LINES); break;
+         case L2_CACHE  : cache_insert_generic(l2_cache_entry_t,  L2_CACHE_WAYS , L2_CACHE_LINES) ; break;
          default        : return ERR_BAD_PARAMETER; break;
-    }
-					
+    }	
 }
 
 //=========================================================================
@@ -246,9 +240,9 @@ int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cac
 
 //=========================================================================
 //======================== helper functions cache read ====================
-
+//=========================================================================
 /*flag to say that no empty way has been found */
-#define NOTHING_FOUND -1
+#define NOTHING_FOUND (-1)
 /**
  * @brief the generic funcion of find_empty_slot
  * 
