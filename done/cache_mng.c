@@ -123,7 +123,7 @@ int cache_flush(void *cache, cache_t cache_type){
 			*p_line = cache_line(type, WAYS, line_index, way); /*if hit, set way and index*/\
 			*hit_way = way;                                                            \
 			*hit_index = line_index;                                                   \
-			LRU_age_update(type, WAYS, way,line_index);/*update ages*/                \
+			LRU_age_update(type, WAYS, way,line_index);/*update ages*/                 \
 			return ERR_NONE;                                                           \
 		}                                                                              \
 	}                                                                                  \
@@ -425,6 +425,11 @@ int move_entry_to_level1(mem_access_t access,void * l1_cache, void * l2_cache, l
 		case DATA       : {move_entry_to_level1_generic(access, l1_dcache_entry_t, l2_entry,l1_cache, l2_cache, phy_addr, L1_DCACHE_TAG_REMAINING_BITS);}break;
 		default: return ERR_BAD_PARAMETER; break;
 		}
+	fprintf(stderr,"--------- TEST l2 entry : %"PRIx32" et data : ",phy_addr);
+	for (word_t* p = l2_entry->line ;p < l2_entry->line + 4; ++p){
+		fprintf(stderr, "%"PRIx32"  ", *p);
+		}
+	fprintf(stderr,"\n");
 	l2_entry->v = 0; //invalidate l2_entry 
 	
 	return ERR_NONE;
@@ -498,8 +503,12 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 		if((err = cache_hit(mem_space, l2_cache, paddr,&p_line,&hit_way,&hit_index, L2_CACHE)) != ERR_NONE) return err;
 		if (hit_way != HIT_WAY_MISS) { // found in level 2 => move entry to level 1 and affect word
 			printf("***HIT L2\n");
-
 			*word = p_line[extract_word_index(phy_addr,L2_CACHE_WORDS_PER_LINE)];
+			fprintf(stderr,"--------- TEST l2 entry : %"PRIx32" et data : ",phy_addr);
+			for (word_t* p = p_line ;p < p_line + 4; ++p){
+				fprintf(stderr, "%"PRIx32"  ", *p);
+			}
+			fprintf(stderr,"\n");
 			if ((err = move_entry_to_level1(access,l1_cache, l2_cache, cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache), phy_addr))!= ERR_NONE){return err;}//error propagation
 			}
 		else { // not found in L2 => search in memory
