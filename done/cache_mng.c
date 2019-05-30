@@ -238,6 +238,20 @@ int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cac
 	return ERR_NONE;
 	}
 
+#define print_entry_generic(entry) \
+		fprintf(stderr, "Valid : %d, Age : %d, Tag : %d\n[", entry->v, entry->age, entry->tag); \
+		for(int i = 0; i < L1_DCACHE_WORDS_PER_LINE; i++)										\
+			fprintf(stderr, "%" PRIx32 ",", entry->line[i]);									\
+		fprintf(stderr, "]\n");																	\
+
+void print_entry(cache_t type, void* entry){
+	switch(type){
+		case L1_DCACHE: print_entry_generic(((l1_dcache_entry_t*) entry)); break;
+		case L1_ICACHE: print_entry_generic(((l1_icache_entry_t*) entry)); break;
+		case L2_CACHE : print_entry_generic(((l2_cache_entry_t* ) entry)); break;
+	}
+}
+
 //=========================================================================
 //======================== helper functions cache read ====================
 //=========================================================================
