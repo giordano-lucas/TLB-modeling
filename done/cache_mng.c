@@ -123,7 +123,7 @@ int cache_flush(void *cache, cache_t cache_type){
 			*p_line = cache_line(type, WAYS, line_index, way); /*if hit, set way and index*/\
 			*hit_way = way;                                                            \
 			*hit_index = line_index;                                                   \
-			LRU_age_update(type, WAYS, line_index, way);/*update ages*/                \
+			LRU_age_update(type, WAYS, way,line_index);/*update ages*/                \
 			return ERR_NONE;                                                           \
 		}                                                                              \
 	}                                                                                  \
