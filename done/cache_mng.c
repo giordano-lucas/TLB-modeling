@@ -58,8 +58,21 @@
         cache_entry_any(TYPE, WAYS, LINE_INDEX, WAY, CACHE)->line
 // --------------------------------------------------
 
+//=========================================================================
 
-	
+#define print_entry_generic(TYPE, entry) \
+		fprintf(stderr, "Type : "#TYPE", Valid : %d, Age : %d, Tag : %d, Data [", entry->v, entry->age, entry->tag); \
+		for(int i = 0; i < L1_DCACHE_WORDS_PER_LINE; i++)										\
+			fprintf(stderr, "%" PRIx32 ",", entry->line[i]);									\
+		fprintf(stderr, "]\n");																	\
+
+void print_entry(cache_t type, void* entry){
+	switch(type){
+		case L1_DCACHE: print_entry_generic(l1_dcache_entry_t,((l1_dcache_entry_t*) entry)); break;
+		case L1_ICACHE: print_entry_generic(l1_icache_entry_t,((l1_icache_entry_t*) entry)); break;
+		case L2_CACHE : print_entry_generic(l2_cache_entry_t, ((l2_cache_entry_t* ) entry)); break;
+	}
+}
 //=========================================================================
 /**
  * @brief Cleans a cache with type type
@@ -123,7 +136,7 @@ int cache_flush(void *cache, cache_t cache_type){
 			*p_line = cache_line(type, WAYS, line_index, way); /*if hit, set way and index*/\
 			*hit_way = way;                                                            \
 			*hit_index = line_index;                                                   \
-			LRU_age_update(type, WAYS, way,line_index);/*update ages*/                \
+			LRU_age_update(type, WAYS, way,line_index);/*update ages*/                 \
 			return ERR_NONE;                                                           \
 		}                                                                              \
 	}                                                                                  \
@@ -235,22 +248,10 @@ int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cac
 		case L2_CACHE  : cache_entry_init_generic(l2_cache_entry_t,  cache_entry, phy_addr, L2_CACHE_TAG_REMAINING_BITS , mem_space , L2_CACHE_WORDS_PER_LINE) ; break;
 		default: return ERR_BAD_PARAMETER; break; //should not arrive here
 	}
+	fprintf(stderr, ">>>>>>>>>>>>>>>>>>>>>>>>>>  phy_addr : %"PRIx32"\n", phy_to_int(paddr));
+	print_entry(cache_type, cache_entry);
 	return ERR_NONE;
 	}
-
-#define print_entry_generic(entry) \
-		fprintf(stderr, "Valid : %d, Age : %d, Tag : %d\n[", entry->v, entry->age, entry->tag); \
-		for(int i = 0; i < L1_DCACHE_WORDS_PER_LINE; i++)										\
-			fprintf(stderr, "%" PRIx32 ",", entry->line[i]);									\
-		fprintf(stderr, "]\n");																	\
-
-void print_entry(cache_t type, void* entry){
-	switch(type){
-		case L1_DCACHE: print_entry_generic(((l1_dcache_entry_t*) entry)); break;
-		case L1_ICACHE: print_entry_generic(((l1_icache_entry_t*) entry)); break;
-		case L2_CACHE : print_entry_generic(((l2_cache_entry_t* ) entry)); break;
-	}
-}
 
 //=========================================================================
 //======================== helper functions cache read ====================
@@ -439,6 +440,11 @@ int move_entry_to_level1(mem_access_t access,void * l1_cache, void * l2_cache, l
 		case DATA       : {move_entry_to_level1_generic(access, l1_dcache_entry_t, l2_entry,l1_cache, l2_cache, phy_addr, L1_DCACHE_TAG_REMAINING_BITS);}break;
 		default: return ERR_BAD_PARAMETER; break;
 		}
+	fprintf(stderr,"--------- TEST l2 entry : %"PRIx32" et data : ",phy_addr);
+	for (word_t* p = l2_entry->line ;p < l2_entry->line + 4; ++p){
+		fprintf(stderr, "%"PRIx32"  ", *p);
+		}
+	fprintf(stderr,"\n");
 	l2_entry->v = 0; //invalidate l2_entry 
 	
 	return ERR_NONE;
@@ -458,8 +464,6 @@ int move_entry_to_level1(mem_access_t access,void * l1_cache, void * l2_cache, l
 	if ((err = insert_level1(access,l1_cache, l2_cache, &entry,phy_addr))!= ERR_NONE) return err; /*error propagation*/     \
 	*word = entry.line[extract_word_index(phy_addr,WORDS_PER_LINE)]; /*affectation*/                                        \
 	}
-	
-
 //=========================================================================
 /**
  * @brief Ask cache for a word of data.
@@ -494,6 +498,7 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 	M_REQUIRE(replace == LRU, ERR_BAD_PARAMETER, "replace is not a valid instance of cache_replace_t %c", ' ');
 	M_REQUIRE(access == INSTRUCTION || access == DATA, ERR_BAD_PARAMETER, "access is not a valid instance of mem_access_t %c", ' ');
 	M_REQUIRE((paddr->page_offset % sizeof(word_t)) == 0, ERR_BAD_PARAMETER, "paddr should be word aligned for cache_read  %c",' ');
+
 	//fprintf(stdout, "*** READING : \n");
 	int err = ERR_NONE; // used to propagate errors
 	uint32_t phy_addr = phy_to_int(paddr);
@@ -512,8 +517,12 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 		if((err = cache_hit(mem_space, l2_cache, paddr,&p_line,&hit_way,&hit_index, L2_CACHE)) != ERR_NONE) return err;
 		if (hit_way != HIT_WAY_MISS) { // found in level 2 => move entry to level 1 and affect word
 			//printf("***HIT L2\n");
-
 			*word = p_line[extract_word_index(phy_addr,L2_CACHE_WORDS_PER_LINE)];
+			fprintf(stderr,"--------- TEST l2 entry : %"PRIx32" et data : ",phy_addr);
+			for (word_t* p = p_line ;p < p_line + 4; ++p){
+				fprintf(stderr, "%"PRIx32"  ", *p);
+			}
+			fprintf(stderr,"\n");
 			if ((err = move_entry_to_level1(access,l1_cache, l2_cache, cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache), phy_addr))!= ERR_NONE){return err;}//error propagation
 			}
 		else { // not found in L2 => search in memory
