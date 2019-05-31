@@ -126,17 +126,17 @@ int cache_flush(void *cache, cache_t cache_type){
 #define cache_hit_generic(type, NB_LINES, WORDS_PER_LINE, TAG_REMAINING_BITS, WAYS)    \
 	uint16_t line_index = extract_line_index(phy_addr, WORDS_PER_LINE, NB_LINES);      \
 	uint32_t tag = phy_addr >> TAG_REMAINING_BITS;                                     \
-	foreach_way(way, WAYS) {  /*iterate on each way : if a cold start or a hit is*/    \
+	foreach_way(Way, WAYS) {  /*iterate on each way : if a cold start or a hit is*/    \
 		                                              /*found  stop the execution */   \
-		if (!cache_valid(type, WAYS, line_index, way) ){/* found a place*/             \
+		if (!cache_valid(type, WAYS, line_index, Way) ){/* found a place*/             \
 			/*LRU_age_increase(type, WAYS, line_index, way);update*/                   \
 			return ERR_NONE;                                                           \
 			}                                                                          \
-		else if (cache_tag(type, WAYS, line_index, way) == tag){/*hit*/                \
-			*p_line = cache_line(type, WAYS, line_index, way); /*if hit, set way and index*/\
-			*hit_way = way;                                                            \
+		else if (cache_tag(type, WAYS, line_index, Way) == tag){/*hit*/                \
+			*p_line = cache_line(type, WAYS, line_index, Way); /*if hit, set way and index*/\
+			*hit_way = Way;                                                            \
 			*hit_index = line_index;                                                   \
-			LRU_age_update(type, WAYS, way,line_index);/*update ages*/                 \
+			LRU_age_update(type, WAYS, Way,line_index);/*update ages*/                 \
 			return ERR_NONE;                                                           \
 		}                                                                              \
 	}                                                                                  \

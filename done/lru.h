@@ -15,8 +15,8 @@
 	foreach_way(way, WAYS){	                                                      \
 	        TYPE* entry = cache_entry(TYPE, WAYS, LINE_INDEX, way);               \
 			if (entry->v == 1){                                                   \
-				if (way == (WAY_INDEX)) {entry->age = 0;}                         \
-			    else if (entry->age < ((WAYS)-1)) {(entry->age)+=1;}              \
+				if (way == (WAY_INDEX)) {entry->age = 0;fprintf(stderr, "*0*");}                         \
+			    else if (entry->age < ((WAYS)-1)) {(entry->age)+=1;fprintf(stderr, "*ß*");}              \
 				}                                                                 \
 			fprintf(stderr, "	valid = %d, way = %d, line index = %"PRIu32", age =  %d, ways = %d \n", entry->v, way, LINE_INDEX, entry->age, WAYS); \
 		}
@@ -34,8 +34,8 @@
 	foreach_way(way, WAYS){	   \
 		    TYPE* entry = cache_entry(TYPE, WAYS, L_INDEX, way);             \
 		    if (entry->v == 1){                                                 \
-				if (way == (WAY_INDEX)) {entry->age = 0;}                      \
-				else if (entry->age < compare_age) {(entry->age)++;}            \
+				if (way == (WAY_INDEX)) {entry->age = 0;fprintf(stderr, "*0*");}                      \
+				else if (entry->age < compare_age) {(entry->age)++;fprintf(stderr, "*ß*");}            \
 			}                                                                   \
 			fprintf(stderr, "	valid = %d, way = %d, line index = %"PRIx32", age =  %d, ways = %d \n", entry->v, way, L_INDEX, entry->age, WAYS); \
 		}
