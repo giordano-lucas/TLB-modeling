@@ -52,7 +52,8 @@ void execute_command(void *mem_space,
     uint32_t word;
     void *l1_cache;
     uint32_t phy_addr = phy_to_int(&paddr);
-	printf("=== tag %d, type = %s\n", phy_addr >> 10, (command->order == READ)? "READ": "WRITE");
+    
+	//printf("=== phyaddr %x, type = %s\n", phy_addr, (command->order == READ)? "READ": "WRITE");
     switch (command->order) {
     case READ:
         l1_cache = (command->type == INSTRUCTION)? l1_icache: l1_dcache;
@@ -117,8 +118,8 @@ int main(int argc, char *argv[])
             assert(cache_flush(l2_cache, L2_CACHE) == ERR_NONE);
 			
 			/*//*/
-			program_print(stdout, &pgm);
-			printf("========================\n");
+			//program_print(stdout, &pgm);
+			//printf("========================\n");
             for_all_lines(line, &pgm) {
                 execute_command(mem_space, line, l1_icache, l1_dcache, l2_cache);
 
