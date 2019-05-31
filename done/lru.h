@@ -16,7 +16,7 @@
 	        /*fprintf(stderr, "TESTINGWAY " #TYPE );*/ \
 			if (entry->v == 1){                                                   \
 				if (way == (WAY_INDEX)) {entry->age = 0;}                         \
-			    else if (entry->age < ((WAYS)-1)) {(entry->age)+=1;}               \ 
+			    else if (entry->age < ((WAYS)-1)) {(entry->age)+=1;}               \
 				}                                                                 \
 			/*fprintf(stderr, "LRU_AGE_INCREASE : valid = %d, way = %d, line index = %"PRIu32", age =  %d, ways = %d \n", entry->v, way, LINE_INDEX, entry->age, WAYS);*/\
 		}
@@ -31,9 +31,9 @@
 #define LRU_age_update(TYPE, WAYS, WAY_INDEX, L_INDEX)                       \
 	uint8_t compare_age = cache_age(TYPE, WAYS, L_INDEX, WAY_INDEX);         \
 	foreach_way(way, WAYS){	   \
-			/*fprintf(stderr, "line index1 : %d " #L_INDEX, L_INDEX); */							\                         
+			/*fprintf(stderr, "line index1 : %d " #L_INDEX, L_INDEX); */							\
 		    TYPE* entry = cache_entry(TYPE, WAYS, L_INDEX, way);             \
-		    fprintf(stderr, " TYPE " #TYPE ); \
+		    /*fprintf(stderr, " TYPE " #TYPE ); */                           \
 		    if (entry->v == 1){                                                 \
 				if (way == (WAY_INDEX)) {entry->age = 0;}                      \
 				else if (entry->age < compare_age) {(entry->age)++;}            \
