@@ -550,7 +550,6 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
  * @param replace replacement policy
  * @return  error code
  */
- #define MASK_BYTE 0xFF
 int cache_read_byte(const void * mem_space, phy_addr_t * p_paddr, mem_access_t access,
 					void * l1_cache,void * l2_cache,uint8_t * p_byte, cache_replace_t replace){
 	M_REQUIRE_NON_NULL(mem_space);
@@ -567,7 +566,8 @@ int cache_read_byte(const void * mem_space, phy_addr_t * p_paddr, mem_access_t a
 	phy_addr_t paddr = *p_paddr;
 	paddr.page_offset -= byte_index;
 	if ((err = cache_read(mem_space,&paddr, access,l1_cache, l2_cache, &word, replace)) != ERR_NONE) return err;//error propagation
-	*p_byte = (word>>((4-byte_index)*8))&MASK_BYTE;//final affectation
+	byte_t* word_as_byte = &word;
+	*p_byte = word_as_byte[byte_index];
 	
 	return ERR_NONE;
 }
