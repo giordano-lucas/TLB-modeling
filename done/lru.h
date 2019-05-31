@@ -12,11 +12,11 @@
  */
 #define LRU_age_increase(TYPE, WAYS, WAY_INDEX, LINE_INDEX)                       \
 	foreach_way(way, WAYS){	                                                      \
-	        TYPE* entry = cache_entry(TYPE, WAYS, LINE_INDEX, way);           \
-	        /*fprintf(stderr, "TESTINGWAY " #TYPE );*/ \
+	        TYPE* entry = cache_entry(TYPE, WAYS, LINE_INDEX, way);               \
+	        /*fprintf(stderr, "TESTINGWAY " #TYPE );*/                            \
 			if (entry->v == 1){                                                   \
 				if (way == (WAY_INDEX)) {entry->age = 0;}                         \
-			    else if (entry->age < ((WAYS)-1)) {(entry->age)+=1;}               \
+			    else if (entry->age < ((WAYS)-1)) {(entry->age)+=1;}              \
 				}                                                                 \
 			/*fprintf(stderr, "LRU_AGE_INCREASE : valid = %d, way = %d, line index = %"PRIu32", age =  %d, ways = %d \n", entry->v, way, LINE_INDEX, entry->age, WAYS);*/\
 		}

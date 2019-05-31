@@ -18,7 +18,7 @@
 /**
  * @brief extract the word_index from a phy_addr
  */
-#define extract_word_index(phy_addr, WORDS_PER_LINE) ((phy_addr)/(sizeof(word_t)) % (WORDS_PER_LINE))
+#define extract_word_index(phy_addr, WORDS_PER_LINE) (((phy_addr)/(sizeof(word_t))) % (WORDS_PER_LINE))
 /**
  * @brief cast an l1 void* entry to the type given by access
  */
@@ -58,8 +58,21 @@
         cache_entry_any(TYPE, WAYS, LINE_INDEX, WAY, CACHE)->line
 // --------------------------------------------------
 
+//=========================================================================
 
-	
+#define print_entry_generic(TYPE, entry) \
+		fprintf(stderr, "Type : "#TYPE", Valid : %d, Age : %d, Tag : %d, Data [", entry->v, entry->age, entry->tag); \
+		for(int i = 0; i < L1_DCACHE_WORDS_PER_LINE; i++)										\
+			fprintf(stderr, "%" PRIx32 ",", entry->line[i]);									\
+		fprintf(stderr, "]\n");																	\
+
+void print_entry(cache_t type, void* entry){
+	switch(type){
+		case L1_DCACHE: print_entry_generic(l1_dcache_entry_t,((l1_dcache_entry_t*) entry)); break;
+		case L1_ICACHE: print_entry_generic(l1_icache_entry_t,((l1_icache_entry_t*) entry)); break;
+		case L2_CACHE : print_entry_generic(l2_cache_entry_t, ((l2_cache_entry_t* ) entry)); break;
+	}
+}
 //=========================================================================
 /**
  * @brief Cleans a cache with type type
@@ -235,22 +248,10 @@ int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cac
 		case L2_CACHE  : cache_entry_init_generic(l2_cache_entry_t,  cache_entry, phy_addr, L2_CACHE_TAG_REMAINING_BITS , mem_space , L2_CACHE_WORDS_PER_LINE) ; break;
 		default: return ERR_BAD_PARAMETER; break; //should not arrive here
 	}
+	fprintf(stderr, ">>>>>>>>>>>>>>>>>>>>>>>>>>  phy_addr : %"PRIx32"\n", phy_to_int(paddr));
+	print_entry(cache_type, cache_entry);
 	return ERR_NONE;
 	}
-
-#define print_entry_generic(entry) \
-		fprintf(stderr, "Valid : %d, Age : %d, Tag : %d\n[", entry->v, entry->age, entry->tag); \
-		for(int i = 0; i < L1_DCACHE_WORDS_PER_LINE; i++)										\
-			fprintf(stderr, "%" PRIx32 ",", entry->line[i]);									\
-		fprintf(stderr, "]\n");																	\
-
-void print_entry(cache_t type, void* entry){
-	switch(type){
-		case L1_DCACHE: print_entry_generic(((l1_dcache_entry_t*) entry)); break;
-		case L1_ICACHE: print_entry_generic(((l1_icache_entry_t*) entry)); break;
-		case L2_CACHE : print_entry_generic(((l2_cache_entry_t* ) entry)); break;
-	}
-}
 
 //=========================================================================
 //======================== helper functions cache read ====================
@@ -463,8 +464,6 @@ int move_entry_to_level1(mem_access_t access,void * l1_cache, void * l2_cache, l
 	if ((err = insert_level1(access,l1_cache, l2_cache, &entry,phy_addr))!= ERR_NONE) return err; /*error propagation*/     \
 	*word = entry.line[extract_word_index(phy_addr,WORDS_PER_LINE)]; /*affectation*/                                        \
 	}
-	
-
 //=========================================================================
 /**
  * @brief Ask cache for a word of data.
@@ -499,7 +498,7 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 	M_REQUIRE(replace == LRU, ERR_BAD_PARAMETER, "replace is not a valid instance of cache_replace_t %c", ' ');
 	M_REQUIRE(access == INSTRUCTION || access == DATA, ERR_BAD_PARAMETER, "access is not a valid instance of mem_access_t %c", ' ');
 	M_REQUIRE((paddr->page_offset % sizeof(word_t)) == 0, ERR_BAD_PARAMETER, "paddr should be word aligned for cache_read  %c",' ');
-	fprintf(stdout, "*** READING : \n");
+	fprintf(stdout, "***** READING : \n");
 	int err = ERR_NONE; // used to propagate errors
 	uint32_t phy_addr = phy_to_int(paddr);
 	const uint32_t * p_line = 0;
@@ -531,7 +530,7 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 			else                      {search_in_memory_and_affect(l1_dcache_entry_t, L1_DCACHE, L1_DCACHE_WORDS_PER_LINE);}
 			}
 		}
-		printf("***END READ \n");
+		printf("*****END READ \n");
 	return ERR_NONE;
 
 }
