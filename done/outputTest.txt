@@ -1,0 +1,16 @@
+	***NOT IN L2 => SEARCH MEMORY 
+>>>>>>>>>>>>>>>>>>>>>>>>>>  phy_addr : 8000
+Type : l1_icache_entry_t, Valid : 1, Age : 0, Tag : 32, Data [0,1,2,3,]
+============== INSERT L1 : check address and value with addr = 8000 and entry : Type : l1_icache_entry_t, Valid : 1, Age : 0, Tag : 32, Data [0,1,2,3,]
+Type : l1_icache_entry_t, Valid : 1, Age : 0, Tag : 32, Data [0,1,2,3,]
+Type : l1_icache_entry_t, Valid : 0, Age : 1, Tag : 0, Data [0,0,0,0,]
+Type : l1_icache_entry_t, Valid : 0, Age : 1, Tag : 0, Data [0,0,0,0,]
+Type : l1_icache_entry_t, Valid : 0, Age : 1, Tag : 0, Data [0,0,0,0,]
+	***NOT IN L2 => SEARCH MEMORY 
+>>>>>>>>>>>>>>>>>>>>>>>>>>  phy_addr : b000
+Type : l1_dcache_entry_t, Valid : 1, Age : 0, Tag : 44, Data [c00,c01,c02,c03,]
+============== INSERT L1 : check address and value with addr = b000 and entry : Type : l1_dcache_entry_t, Valid : 1, Age : 0, Tag : 44, Data [c00,c01,c02,c03,]
+Type : l1_dcache_entry_t, Valid : 1, Age : 0, Tag : 44, Data [c00,c01,c02,c03,]
+Type : l1_dcache_entry_t, Valid : 0, Age : 1, Tag : 0, Data [0,0,0,0,]
+Type : l1_dcache_entry_t, Valid : 0, Age : 1, Tag : 0, Data [0,0,0,0,]
+Type : l1_dcache_entry_t, Valid : 0, Age : 1, Tag : 0, Data [0,0,0,0,]

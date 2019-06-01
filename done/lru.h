@@ -14,12 +14,10 @@
     fprintf(stderr, "LRU_AGE_INCREASE with type : " #TYPE" \n" );                                     \
 	foreach_way(way, WAYS){	                                                      \
 	        TYPE* entry = cache_entry(TYPE, WAYS, LINE_INDEX, way);               \
-			if (entry->v == 1){                                                   \
-				if (way == (WAY_INDEX)) {entry->age = 0;}                         \
-			    else if (entry->age < ((WAYS)-1)) {(entry->age)+=1;}              \
-				}                                                                 \
-			fprintf(stderr, "	valid = %d, way = %d, line index = %"PRIu32", age =  %d, ways = %d \n", entry->v, way, LINE_INDEX, entry->age, WAYS); \
-			print_entry_generic(TYPE, entry);\
+			if (way == (WAY_INDEX)) {entry->age = 0;}                         \
+			else if (entry->age < ((WAYS)-1)) {(entry->age)+=1;}              \
+			/*fprintf(stderr, "	valid = %d, way = %d, line index = %"PRIu32", age =  %d, ways = %d +++", entry->v, way, LINE_INDEX, entry->age, WAYS); */\
+			/*print_entry_generic(TYPE, entry);*/\
 		}
 
 /**
@@ -34,10 +32,8 @@
 	fprintf(stderr, "LRU_AGE_UPDATE with type : " #TYPE" \n" );   					\
 	foreach_way(way, WAYS){	   \
 		    TYPE* entry = cache_entry(TYPE, WAYS, L_INDEX, way);             \
-		    if (entry->v == 1){                                                 \
-				if (way == (WAY_INDEX)) {entry->age = 0;}                      \
-				else if (entry->age < compare_age) {(entry->age)++;}            \
-			}                                                                   \
-			fprintf(stderr, "	valid = %d, way = %d, line index = %"PRIx32", age =  %d, ways = %d \n", entry->v, way, L_INDEX, entry->age, WAYS); \
-			print_entry_generic(TYPE, entry);\
+			if (way == (WAY_INDEX)) {entry->age = 0;}                      \
+			else if (entry->age < compare_age) {(entry->age)++;}            \
+			/*fprintf(stderr, "	valid = %d, way = %d, line index = %"PRIx32", age =  %d, ways = %d +++", entry->v, way, L_INDEX, entry->age, WAYS); */\
+			/*print_entry_generic(TYPE, entry);*/\
 		}
