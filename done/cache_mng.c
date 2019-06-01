@@ -370,7 +370,8 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
 		uint32_t newTag = cast_l1_entry(access,evicted_entry)->tag >> SHIFT_BITS_CAST_TAG_L1_TO_L2;
 		cache_init_entry_with_param(l2_entry, phy_addr, newTag, cast_l1_entry(access,evicted_entry)->line, L2_CACHE_WORDS_PER_LINE); // init entry
 		// move entry to level 2
-		if ((err = insert_level2((l2_cache_entry_t*)l2_cache, &l2_entry, phy_addr))!= ERR_NONE) return err; //error propagation
+		uint32_t old_phy_addr = recomputeOldPhyAddr(cast_l1_entry(access,evicted_entry)->tag, L1_DCACHE_TAG_REMAINING_BITS, line_index);
+		if ((err = insert_level2((l2_cache_entry_t*)l2_cache, &l2_entry, old_phy_addr))!= ERR_NONE) return err; //error propagation
 		cast_l1_entry(access,entry)->age = cast_l1_entry(access, evicted_entry)->age; //prepare for modifying ages policy 
 		isColdStart = false;
 		}
