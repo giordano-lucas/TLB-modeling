@@ -639,14 +639,15 @@ int cache_write(void * mem_space,phy_addr_t * paddr, void * l1_cache,
 			l1_dcache_entry_t entry;
 			cache_entry_init(mem_space, paddr,&entry,L1_DCACHE); //init entry from memory (gets everything from mem)
 			if((err = insert_level1(DATA, l1_cache, l2_cache, &entry, phy_to_int(paddr))) != ERR_NONE) return err; //insert entry to l1
-			/*for(int i = 0; i < L2_CACHE_LINES ; i++){
+			for(int i = 0; i < L2_CACHE_LINES ; i++){
 				foreach_way(wayy, L2_CACHE_WAYS){
 					l2_cache_entry_t* entr = cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, i, wayy, l2_cache);
 					if(!memcmp(line, entr->line, L1_ICACHE_WORDS_PER_LINE*sizeof(word_t)))
 						fprintf(stderr, "*******************************************************************\n INDEX : %d", i);
 					
 				}
-			}*/
+			}
+			
 			}
 		}
 	return ERR_NONE;
