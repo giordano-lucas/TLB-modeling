@@ -212,14 +212,25 @@ int cache_insert(uint16_t cache_line_index,uint8_t cache_way,const void * cache_
 }
 
 //=========================================================================
-
+/**
+ * initilize an entry with the given parameters (≠ from init_generic since this does not )
+ */
+#define cache_init_entry_with_param(entry, phy_addr, input_line, WORDS_PER_LINE, CACHE_TAG_REMAINING_BITS)    \
+	(entry)->v = 1;     /* valid when we insert*/                                                                     \
+	(entry)->age = 0;   /* entry age is 0 when we insert*/                                                            \
+	(entry)->tag = phy_addr >> CACHE_TAG_REMAINING_BITS;  /*sets the tag depending on the type of the cache*/         \
+	/*copy content of input entry to entry*/                                                                          \
+	memcpy((entry)->line, input_line, WORDS_PER_LINE*sizeof(word_t));
+/**
+ * @brief : generic helper function for cache_entry_init
+ * @param type : type of cache
+ * @param cache_entry : entry to init
+ * @param 
+ */
 #define cache_entry_init_generic(type, cache_entry, phy_addr, CACHE_TAG_REMAINING_BITS, mem_space, WORDS_PER_LINE) {     						 \
-			type* entry = cache_entry;                                                                                             				  \
-			entry->v = 1;          /* valid when we insert*/                                                                                       \
-			entry->age = 0;       /* entry age is 0 when we insert*/                                                               					\
-			entry->tag = phy_addr >> CACHE_TAG_REMAINING_BITS;   /*sets the tag depending on the type of the cache*/  	 							 \
-			uint32_t addr = ((phy_addr/sizeof(word_t))/WORDS_PER_LINE)*WORDS_PER_LINE  ;    /*get the right word addressed line*/					  \
-			memcpy (entry->line, (word_t*)(mem_space) + addr,WORDS_PER_LINE*sizeof(word_t));   /*copy the line from the given entry to the new entry*/ \
+			type* entry = cache_entry;                                                                                             				 \
+			uint32_t addr = ((phy_addr/sizeof(word_t))/WORDS_PER_LINE)*WORDS_PER_LINE  ;    /*get the right word addressed line*/			     \
+			cache_init_entry_with_param(entry, phy_addr,  ((word_t*)(mem_space) + addr), WORDS_PER_LINE, CACHE_TAG_REMAINING_BITS);              \
 			}
  
 // ========================================================================
@@ -344,47 +355,55 @@ int insert_level2(l2_cache_entry_t* cache, l2_cache_entry_t* entry, uint32_t phy
 	modify_ages(L2_CACHE, cache, cache_way, line_index, isColdStart);//update ages
 	return ERR_NONE;
 	}
+
 /**
- * initilize an entry with the givin parameters
+ * constant used in the L1-L2 convertion entry in case of an eviction from L1
  */
-#define cache_init_entry_with_param(entry, phy_addr, newtag, input_cache_line, WORDS_PER_LINE)         \
-	entry.v = 1;                                                                                                   \
-	entry.age = 0;                                                                                                 \
-	entry.tag = (newtag);\
-	/*copy content of input entry to entry*/                                                                       \
-	memcpy(entry.line, input_cache_line, WORDS_PER_LINE*sizeof(word_t));
 #define SHIFT_BITS_CAST_TAG_L1_TO_L2 3
-
-#define recomputeOldPhyAddr(tag, TAG_REMAINING_BITS, index) ((((uint32_t)(tag))<<(TAG_REMAINING_BITS)) | (((uint32_t)(index))<<4))
-
+/**
+ * = TAG_REMAINING_BITS - LINE_REMAINING_BITS and is always equals to 4 for all caches
+ */
+#define TAG_AND_LINE_INDEX_REMAINING_BITS 4
+/**
+ * @brief : fonction used to recompute old phyaddr for an entry that is evicted from l1 and pushed to l2
+ * @param tag : tag of the L1 entry
+ * @param TAG_REMAINING_BITS : bits that are not used by the tag in L1 cache
+ * @param index : index of the line where the entry has been placed in  L1
+ */
+#define recomputeOldPhyAddr(tag, TAG_REMAINING_BITS, index) ((((uint32_t)(tag))<<(TAG_REMAINING_BITS)) | (((uint32_t)(index))<< TAG_AND_LINE_INDEX_REMAINING_BITS))
+/**
+ * @brief          : function that inserts a L1 entry into l1_cache
+ * @param access   : to distinguish between fetching instructions and reading/writing data
+ * @param l1_cache : pointer to the beginning of L1 CACHE
+ * @param l2_cache : pointer to the beginning of L2 CACHE
+ * @param entry    : pointer to the entry to be inserted in L1_cache
+ * @param phy_addr : physical address
+ */
 int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* entry, uint32_t phy_addr){
 	
 	int err = ERR_NONE;
 	cache_t cache_type = (access == INSTRUCTION) ? L1_ICACHE: L1_DCACHE;
 	bool isColdStart = true;
-	//***********************************************************************************************changer cette ligne
-	uint16_t line_index = extract_line_index(phy_addr, L1_ICACHE_WORDS_PER_LINE, L1_ICACHE_LINES);
+	uint16_t line_index = (access == INSTRUCTION) ? extract_line_index(phy_addr, L1_ICACHE_WORDS_PER_LINE, L1_ICACHE_LINES): extract_line_index(phy_addr, L1_DCACHE_WORDS_PER_LINE, L1_DCACHE_LINES);
 	int cache_way = find_empty_slot(cache_type, l1_cache, line_index); //find a place
 	if (cache_way == NOTHING_FOUND){// there is no empty slot in l1 cache => evict an entry and move it to L2
 		void* evicted_entry = evict(cache_type, l1_cache, line_index); //eviction
-		if (evicted_entry == NULL) return ERR_MEM; // error propagation
-		l2_cache_entry_t l2_entry;
-		uint32_t newTag = cast_l1_entry(access,evicted_entry)->tag >> SHIFT_BITS_CAST_TAG_L1_TO_L2;
+		if (evicted_entry == NULL) return ERR_MEM; // error propagation 
 		uint32_t oldPhyAddr = (access == INSTRUCTION)? recomputeOldPhyAddr(cast_l1_entry(access,evicted_entry)->tag, L1_ICACHE_TAG_REMAINING_BITS, line_index ) : recomputeOldPhyAddr(cast_l1_entry(access,evicted_entry)->tag, L1_DCACHE_TAG_REMAINING_BITS, line_index );
-		cache_init_entry_with_param(l2_entry, oldPhyAddr, newTag, cast_l1_entry(access,evicted_entry)->line, L2_CACHE_WORDS_PER_LINE); // init entry
+		l2_cache_entry_t l2_entry; // cast evicted_entry to an l2 entry
+		cache_init_entry_with_param(&l2_entry, oldPhyAddr, cast_l1_entry(access,evicted_entry)->line, L2_CACHE_WORDS_PER_LINE, L2_CACHE_TAG_REMAINING_BITS);
 		// move entry to level 2
 		if ((err = insert_level2((l2_cache_entry_t*)l2_cache, &l2_entry, oldPhyAddr))!= ERR_NONE) return err; //error propagation
 		cast_l1_entry(access,entry)->age = cast_l1_entry(access, evicted_entry)->age; //prepare for modifying ages policy 
-		isColdStart = false;
+		isColdStart = false; // if we evict an entry it is no longer a cold start
+		cache_way = find_empty_slot(cache_type, l1_cache, line_index); //update cache_way with the way where evicted entry was
 		}
-    //insert in l1 cache (here we are sure that there is at least an empt way)
-    if (cache_way == NOTHING_FOUND) cache_way = find_empty_slot(cache_type, l1_cache, line_index); 
     //fprintf(stderr, "============== INSERT L1 : check address and value with addr = %"PRIx32" and entry : ", phy_addr);print_entry(cache_type, entry);
+    //insert in l1 cache (here we are sure that there is at least an empt way)
     if ((err = cache_insert(line_index,cache_way, cast_l1_entry(access,entry), l1_cache,cache_type))!= ERR_NONE) return err; // error propagation
 	modify_ages(cache_type,l1_cache, cache_way,line_index, isColdStart);//update ages
 	return ERR_NONE;
 	} 
-	
 //============================================================================================
 /**
  * @brief casts a l2 entry into a l1 entry
