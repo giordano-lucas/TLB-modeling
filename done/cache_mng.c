@@ -26,8 +26,16 @@
  * @brief return the instance of cache_type_t given by access 
  */
 #define to_l1_cache(access) (((access) == INSTRUCTION)?L1_ICACHE:L1_DCACHE)
-
-
+/**
+ * @brief compute address aligned on line_index (for memory accesses)
+ */
+#define compute_addr_line_aligned(phy_addr,WORDS_PER_LINE) (((phy_addr/sizeof(word_t))/WORDS_PER_LINE)*WORDS_PER_LINE)
+/**
+ * @brief function that accesses memory 
+ */
+void access_memory(word_t* src, word_t* dest, uint8_t WORDS_PER_LINE){
+	memcpy (dest, src, WORDS_PER_LINE*sizeof(word_t));
+	}
 /*******************************************************************/
 /**
  * Macros defined as the ones in cache.h but that can be used with any cache name
@@ -213,35 +221,39 @@ int cache_insert(uint16_t cache_line_index,uint8_t cache_way,const void * cache_
 
 //=========================================================================
 /**
- * initilize an entry with the given parameters (≠ from init_generic since this does not )
+ * initilize an entry with the given parameters
  */
-#define cache_init_entry_with_param(entry, phy_addr, input_line, WORDS_PER_LINE, CACHE_TAG_REMAINING_BITS)    \
+#define cache_init_entry_with_param(entry, phy_addr, input_line, WORDS_PER_LINE, CACHE_TAG_REMAINING_BITS)            \
 	(entry)->v = 1;     /* valid when we insert*/                                                                     \
 	(entry)->age = 0;   /* entry age is 0 when we insert*/                                                            \
 	(entry)->tag = phy_addr >> CACHE_TAG_REMAINING_BITS;  /*sets the tag depending on the type of the cache*/         \
 	/*copy content of input entry to entry*/                                                                          \
 	memcpy((entry)->line, input_line, WORDS_PER_LINE*sizeof(word_t));
 /**
- * @brief : generic helper function for cache_entry_init
- * @param type : type of cache
- * @param cache_entry : entry to init
- * @param 
+ * @brief                          : generic helper function for cache_entry_init
+ * @param type                     : type of cache
+ * @param cache_entry              : entry to init
+ * @param phy_addr                 : physical address, to extract the tag
+ * @param CACHE_TAG_REMAINING_BITS : remaining bits for the tag
+ * @param mem_space                : starting address of the memory space
+ * @param WORDS_PER_LINE           : the number of words per line of the cache
  */
-#define cache_entry_init_generic(type, cache_entry, phy_addr, CACHE_TAG_REMAINING_BITS, mem_space, WORDS_PER_LINE) {     						 \
-			type* entry = cache_entry;                                                                                             				 \
-			uint32_t addr = ((phy_addr/sizeof(word_t))/WORDS_PER_LINE)*WORDS_PER_LINE  ;    /*get the right word addressed line*/			     \
-			cache_init_entry_with_param(entry, phy_addr,  ((word_t*)(mem_space) + addr), WORDS_PER_LINE, CACHE_TAG_REMAINING_BITS);              \
-			}
+#define cache_entry_init_generic(type, cache_entry, phy_addr, CACHE_TAG_REMAINING_BITS, mem_space, WORDS_PER_LINE) {     				 \
+	type* entry = cache_entry;                                                                                             				 \
+	uint32_t addr =  compute_addr_line_aligned(phy_addr,WORDS_PER_LINE) ;    /*get the right word addressed line*/			     \
+	cache_init_entry_with_param(entry, phy_addr,  ((word_t*)(mem_space) + addr), WORDS_PER_LINE, CACHE_TAG_REMAINING_BITS);              \
+}
  
 // ========================================================================
 /**
  * @brief Initialize a cache entry (write to the cache entry for the first time)
  *
- * @param mem_space starting address of the memory space
- * @param paddr pointer to physical address, to extract the tag
- * @param cache_entry pointer to the entry to be initialized
+ * @param mem_space starting address of the memory space, must be non null
+ * @param paddr pointer to physical address, to extract the tag, must be non null
+ * @param cache_entry pointer to the entry to be initialized, must be non null
  * @param cache_type to distinguish between different caches
  * @return  error code
+ * 
  */
 int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cache_entry,cache_t cache_type){
 	M_REQUIRE_NON_NULL(mem_space); //basic checks
@@ -256,8 +268,6 @@ int cache_entry_init(const void * mem_space, const phy_addr_t * paddr,void * cac
 		case L2_CACHE  : cache_entry_init_generic(l2_cache_entry_t,  cache_entry, phy_addr, L2_CACHE_TAG_REMAINING_BITS , mem_space , L2_CACHE_WORDS_PER_LINE) ; break;
 		default: return ERR_BAD_PARAMETER; break; //should not arrive here
 	}
-	//fprintf(stderr, ">>>>>>>>>>>>>>>>>>>>>>>>>>  phy_addr : %"PRIx32"\n", phy_to_int(paddr));
-	print_entry(cache_type, cache_entry);
 	return ERR_NONE;
 	}
 
@@ -294,27 +304,39 @@ int find_empty_slot(cache_t cache_type, void* cache, uint16_t line_index){
 		case L2_CACHE : find_empty_slot_generic(l2_cache_entry_t , cache, line_index, L2_CACHE_WAYS) ;break;
 		default: return NOTHING_FOUND;break;
 		}
-	}                                                                                            
-#define evict_generic(TYPE, cache, LINE_INDEX, WAYS)    {                                                \
+	} 
+/**
+ * @brief generic helper function for evict
+ * @param TYPE : type of cache
+ * @param LINE_INDEX : index of the line of the cache where we want to evict
+ * @param WAYS : number of ways of the cache
+ * @param returns the evicted entry or NULL in case of an error
+ */                                                                                           
+#define evict_generic(TYPE, LINE_INDEX, WAYS)    {                                                       \
 	unsigned int max_age = 0 ;                                                                           \
 	TYPE* entry_to_evict = NULL;                                                                         \
-	/*fprintf(stderr, "************ EVICTION : \n");   */                   \
-	foreach_way(way, WAYS){ /*iterate on every way to find the entry to evict*/                          \
+	foreach_way(way, WAYS){ /*iterate on every way to find the entry with max age (LRU)*/                \
 		TYPE* entry = cache_entry(TYPE, WAYS, LINE_INDEX, way);                                          \
 		if (entry->v && entry->age >= max_age) { /*get the entry with the biggest age*/                  \
 		    max_age = entry->age;                                                                        \
 		    entry_to_evict = entry;                                                                      \
 			}                                                                                            \
-			/*fprintf(stderr, "EVICTION POSS : ");print_entry_generic(TYPE,entry);*/\
 		}                                                                                                \
 		if (entry_to_evict != NULL) entry_to_evict->v = 0; /*entry_to_evict should always be != NULL in practice*/   \
 		return entry_to_evict;                                                                           \
 	}
+/**
+ * @brief : function that evicts an entry of the given cache at line_index and returns it (with LRU policy)
+ * @param cache_type : type of cache
+ * @param cache      : cache from which we want to evict 
+ * @param line_index : index of the line 
+ * @param returns the evicted entry or NULL in case of an error
+ */
 void* evict(cache_t cache_type, void* cache, uint16_t line_index) {
 	switch (cache_type){ //use the generic macro depending on the type of the cache
-		case L1_ICACHE: evict_generic(l1_icache_entry_t, cache, line_index, L1_ICACHE_WAYS);break;
-		case L1_DCACHE: evict_generic(l1_dcache_entry_t, cache, line_index, L1_DCACHE_WAYS);break;
-		case L2_CACHE : evict_generic(l2_cache_entry_t , cache, line_index, L2_CACHE_WAYS) ;break;
+		case L1_ICACHE: evict_generic(l1_icache_entry_t, line_index, L1_ICACHE_WAYS);break;
+		case L1_DCACHE: evict_generic(l1_dcache_entry_t, line_index, L1_DCACHE_WAYS);break;
+		case L2_CACHE : evict_generic(l2_cache_entry_t , line_index, L2_CACHE_WAYS) ;break;
 		default: return NULL;break;
 		}
 	}
@@ -335,22 +357,26 @@ void modify_ages(cache_t cache_type,void *cache, uint8_t Way, uint16_t Line_inde
 		}
 	}
 
-
+/**
+ * @brief          : function that inserts an entry in l2 cache
+ * @param cache    : L2 cache where we want to insert entry
+ * @param entry    : entry to insert
+ * @param phy_addr : physical address
+ * @return         : error code
+ */
 int insert_level2(l2_cache_entry_t* cache, l2_cache_entry_t* entry, uint32_t phy_addr){
 	uint16_t line_index = extract_line_index(phy_addr, L2_CACHE_WORDS_PER_LINE, L2_CACHE_LINES);
-	//fprintf(stderr, ">>>>>>>> INDEX INSERT L2 : %d \n", line_index);
-	int err = ERR_NONE; //err propagation
+	int err = ERR_NONE;                                                 //err propagation
 	bool isColdStart = true;
-	int cache_way = find_empty_slot(L2_CACHE, cache, line_index); //find a place
-	if (cache_way == NOTHING_FOUND){ // there is no empty slot in l2 cache => evict
+	int cache_way = find_empty_slot(L2_CACHE, cache, line_index);       //find a place
+	if (cache_way == NOTHING_FOUND){                                    // there is no empty slot in l2 cache => evict
 		l2_cache_entry_t* evicted = evict(L2_CACHE, cache, line_index); //eviction
-		if (evicted == NULL) return ERR_MEM; // error propagation
-		entry->age = evicted->age;
-		isColdStart = false;
+		if (evicted == NULL) return ERR_MEM;                            // error propagation
+		entry->age = evicted->age;                                      // prepare for modify_ages
+		isColdStart = false;                                            // if we evict an entry it is no longer a cold start
+		cache_way = find_empty_slot(L2_CACHE, cache, line_index);       //update cache_way with the way where evicted entry was
 		}
-	// here we are sure that there is at least one empty way in the cache so we can insert
-	if (cache_way == NOTHING_FOUND) cache_way = find_empty_slot(L2_CACHE, cache, line_index);
-	//fprintf(stderr, "============== INSERT L2 : check address and value with addr = %"PRIx32" and entry : ", phy_addr);print_entry_generic(l2_cache_entry_t, entry);
+	 //insert in l2 cache (here we are sure that there is at least an empt way)
 	if ((err = cache_insert(line_index,cache_way,entry,cache, L2_CACHE))!= ERR_NONE) return err;//error propagation
 	modify_ages(L2_CACHE, cache, cache_way, line_index, isColdStart);//update ages
 	return ERR_NONE;
@@ -378,6 +404,7 @@ int insert_level2(l2_cache_entry_t* cache, l2_cache_entry_t* entry, uint32_t phy
  * @param l2_cache : pointer to the beginning of L2 CACHE
  * @param entry    : pointer to the entry to be inserted in L1_cache
  * @param phy_addr : physical address
+ * @return         : error code
  */
 int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* entry, uint32_t phy_addr){
 	
@@ -398,33 +425,12 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
 		isColdStart = false; // if we evict an entry it is no longer a cold start
 		cache_way = find_empty_slot(cache_type, l1_cache, line_index); //update cache_way with the way where evicted entry was
 		}
-    //fprintf(stderr, "============== INSERT L1 : check address and value with addr = %"PRIx32" and entry : ", phy_addr);print_entry(cache_type, entry);
     //insert in l1 cache (here we are sure that there is at least an empt way)
     if ((err = cache_insert(line_index,cache_way, cast_l1_entry(access,entry), l1_cache,cache_type))!= ERR_NONE) return err; // error propagation
 	modify_ages(cache_type,l1_cache, cache_way,line_index, isColdStart);//update ages
 	return ERR_NONE;
 	} 
 //============================================================================================
-/**
- * @brief casts a l2 entry into a l1 entry
- * 
- * @param type : ype of cache entry (l1_icache_entry_t, l1_dcache_entry_t, l2_cache_entry_t)
- * @param l1_entry : output entry : the line to be casted
- * @param l2_entry : source entry for casting
- * @param phy_addr           : the physical address
- * @param TAG_REMAINING_BITS : the number of bits of the remaining bits for the tag of phy_addr
- */
-#define cast_l2_to_l1_generic(type, l1_entry, l2_entry, phy_addr, TAG_REMAINING_BITS)       \
-	type entry;       /*initialize new entry */                                             \
-	entry.v = 1;                                                                            \
-	entry.age = 0;                                                                          \
-	entry.tag = phy_addr >> TAG_REMAINING_BITS;    /*compute new tag*/                      \
-	memcpy (entry.line, l2_entry->line,L2_CACHE_WORDS_PER_LINE*sizeof(word_t));             \
-	l1_entry = entry; /*final affectation*/                                                 \
-	fprintf(stderr, "*** cast entry : tag = %"PRIx32", new tag = %"PRIx32" et phyaddr : page num = %"PRIx32" et page_offset = %"PRIx32" \n", l2_entry->tag, l1_entry.tag, phy_addr >> PAGE_OFFSET, phy_addr & 0b111111111111);\
-	
-
-
 //====================================================================================================
 /**
  * @brief this the generic function corresponding to move_entry_to_level1
@@ -437,13 +443,13 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
  * @param phy_addr           : the physical address
  * @param TAG_REMAINING_BITS : the number of bits of the remaining bits for the tag of phy_addr
  * @return error code
- * 
  */
-#define move_entry_to_level1_generic(access, type, l2_entry, l1_cache, l2_cache, phy_addr, TAG_REMAINING_BITS)  \
-	type l1_entry;    /*create entry */                                                                         \
-	cast_l2_to_l1_generic(type, l1_entry, l2_entry, phy_addr, TAG_REMAINING_BITS); /*cast it*/                  \
-	/* insert new entry in l1_cache and if needed, do the error propagation*/                                    \
-	int err = ERR_NONE;                                                                                         \
+#define move_entry_to_level1_generic(access, type, l2_entry, l1_cache, l2_cache, phy_addr, TAG_REMAINING_BITS)     \
+	type l1_entry;    /*create L1 entry for casting form l2_entry*/                                                \
+	/* cast it */                                                                                                  \
+	cache_init_entry_with_param(&l1_entry, phy_addr, l2_entry->line, L2_CACHE_WORDS_PER_LINE, TAG_REMAINING_BITS)  \
+	/* insert new entry in l1_cache and if needed, do the error propagation*/                                      \
+	int err = ERR_NONE;                                                                                            \
 	if ((err = insert_level1(access,l1_cache, l2_cache, &l1_entry, phy_addr))!= ERR_NONE) return err; 
 
 /**
@@ -457,38 +463,56 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
  * @return error code
  */
 int move_entry_to_level1(mem_access_t access,void * l1_cache, void * l2_cache, l2_cache_entry_t* l2_entry, const uint32_t phy_addr){
-	//fprintf(stderr,"******************* MOVING TO l1 ***************************** : "); print_entry_generic(l2_cache_entry_t, l2_entry);
-	//fprintf(stderr,"--------- phy:  l2 entry : %"PRIx32" \n" ,phy_addr);
 	switch(access){ //use the generic macro depending on the type of the cache
 		case INSTRUCTION: {move_entry_to_level1_generic(access, l1_icache_entry_t, l2_entry,l1_cache, l2_cache, phy_addr, L1_ICACHE_TAG_REMAINING_BITS);}break;
 		case DATA       : {move_entry_to_level1_generic(access, l1_dcache_entry_t, l2_entry,l1_cache, l2_cache, phy_addr, L1_DCACHE_TAG_REMAINING_BITS);}break;
 		default: return ERR_BAD_PARAMETER; break;
 		}
-	
 	l2_entry->v = 0; //invalidate l2_entry 
+
 	uint16_t line_index = extract_line_index(phy_addr, L2_CACHE_WORDS_PER_LINE, L2_CACHE_LINES);
 	foreach_way(w, L2_CACHE_WAYS){
 		l2_cache_entry_t* ent = cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, line_index, w, l2_cache);
 		if(ent->v && ent->age > l2_entry->age){
-			l2_entry->age--;
+			ent->age--;
 		}
 	}
+
 	return ERR_NONE;
 	}
 // ========================================================================
-
 /**
- * @brief search the cache line in memory and insert it in level 1 cache and affect word
+ * @brief generic helper function for search_in_memory_and_affect
  * 
  * @param type               : type of cache entry (l1_icache_entry_t, l1_dcache_entry_t, l2_cache_entry_t)
  * @param cache_type         : corresponds to an instance of the enum cache_type_t (L1_DCACHE_...)
  * @param WORDS_PER_LINE     : the number of words per line of the type cache: 
  */
-#define search_in_memory_and_affect(type, cache_type, WORDS_PER_LINE) {                                                                                 \
+#define search_in_memory_and_affect_generic(type, cache_type, WORDS_PER_LINE) {                                           \
 	type entry;                                                                                                                                         \
 	if ((err = cache_entry_init(mem_space,paddr,&entry,cache_type))!= ERR_NONE) return err; /*error propagation, init the entry from memory*/           \
 	if ((err = insert_level1(access,l1_cache, l2_cache, &entry,phy_addr))!= ERR_NONE) return err; /*error propagation, insert the entry in memory*/     \
 	*word = entry.line[extract_word_index(phy_addr,WORDS_PER_LINE)]; /*sets the word using the entry*/                                                  \
+	}
+/**
+ * @brief search the cache line in memory and insert it in level 1 cache and affect word
+ * 
+ * @param access to distinguish between fetching instructions and reading/writing data
+ * @param word pointer to the word of data that is returned by cache
+ * @param mem_space pointer to the memory space
+ * @param paddr pointer to a physical address
+ * @param phy_addr : phy_addr casted in uint32
+ * @param l1_cache pointer to the beginning of L1 CACHE
+ * @param l2_cache pointer to the beginning of L2 CACHE
+ */
+int search_in_memory_and_affect(mem_access_t access, uint32_t * word, phy_addr_t * paddr, uint32_t phy_addr, const void* mem_space, void * l1_cache, void * l2_cache){
+	int err = ERR_NONE;
+	switch (access){
+		case INSTRUCTION: search_in_memory_and_affect_generic(l1_icache_entry_t, L1_ICACHE, L1_ICACHE_WORDS_PER_LINE);break;
+		case DATA       : search_in_memory_and_affect_generic(l1_dcache_entry_t, L1_DCACHE, L1_DCACHE_WORDS_PER_LINE);break;
+		default         : return ERR_BAD_PARAMETER; break;
+		}
+	return ERR_NONE;
 	}
 //=========================================================================
 /**
@@ -525,7 +549,6 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 	M_REQUIRE(access == INSTRUCTION || access == DATA, ERR_BAD_PARAMETER, "access is not a valid instance of mem_access_t %c", ' ');
 	M_REQUIRE((paddr->page_offset % sizeof(word_t)) == 0, ERR_BAD_PARAMETER, "paddr should be word aligned for cache_read  %c",' ');
 
-	//fprintf(stderr, "*** READING : ");
 	int err = ERR_NONE; // used to propagate errors
 	uint32_t phy_addr = phy_to_int(paddr);
 	const uint32_t * p_line = 0;
@@ -534,26 +557,18 @@ int cache_read(const void * mem_space,phy_addr_t * paddr, mem_access_t access,
 	
 	if ((err = cache_hit(mem_space, l1_cache, paddr,&p_line,&hit_way,&hit_index, to_l1_cache(access))) != ERR_NONE) return err;//error handling, check if word is in l1
 	if  (hit_way != HIT_WAY_MISS){//if found found in level 1 nothing to be done, just affect word
-		//fprintf(stderr,"	***HIT WAY L1 \n");
-		//printf("*** tag = %"PRIx32" \n", phy_addr >> L1_ICACHE_TAG_REMAINING_BITS);
-		if (access == INSTRUCTION) *word = p_line[extract_word_index(phy_addr, L1_ICACHE_WORDS_PER_LINE)]; //set word since we found it in either l1_i or l1_d
-		else                       *word = p_line[extract_word_index(phy_addr, L1_DCACHE_WORDS_PER_LINE)];
+		*word = p_line[extract_word_index(phy_addr, ((access == INSTRUCTION)?L1_ICACHE_WORDS_PER_LINE:L1_DCACHE_WORDS_PER_LINE))]; //set word since we found it in either l1_i or l1_d
 		}
 	else{//not found in l1 => search in l2
 		if((err = cache_hit(mem_space, l2_cache, paddr,&p_line,&hit_way,&hit_index, L2_CACHE)) != ERR_NONE) return err; //check if it is in l2, error propagate
 		if (hit_way != HIT_WAY_MISS) { // found in level 2 => move entry to level 1 and affect word
-			//fprintf(stderr,"	***HIT L2\n");
 			*word = p_line[extract_word_index(phy_addr,L2_CACHE_WORDS_PER_LINE)];
-			//fprintf(stderr, "			index : %d \n", hit_index);
 			if ((err = move_entry_to_level1(access,l1_cache, l2_cache, cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache), phy_addr))!= ERR_NONE){return err;}//error propagation
 			}
 		else { // not found in L2 => search in memory
-			//printf(stderr,"	***NOT IN L2 => SEARCH MEMORY \n");
-			if (access == INSTRUCTION){search_in_memory_and_affect(l1_icache_entry_t, L1_ICACHE, L1_ICACHE_WORDS_PER_LINE);}
-			else                      {search_in_memory_and_affect(l1_dcache_entry_t, L1_DCACHE, L1_DCACHE_WORDS_PER_LINE);}
+			search_in_memory_and_affect(access, word, paddr, phy_addr, mem_space, l1_cache, l2_cache);
 			}
 		}
-		//fprintf(stderr,"***END READ \n");
 	return ERR_NONE;
 
 }
@@ -595,13 +610,14 @@ int cache_read_byte(const void * mem_space, phy_addr_t * p_paddr, mem_access_t a
 }
 
 //=========================================================================
+
 void write_memory(void * mem_space, uint32_t phy_addr, word_t* line) {
-	uint32_t addr = ((phy_addr/sizeof(word_t))/L1_DCACHE_WORDS_PER_LINE)*L1_DCACHE_WORDS_PER_LINE; //gets the word addressed phy addr and sets memory to line
-	memcpy ((word_t*)(mem_space) + addr, line, L1_DCACHE_WORDS_PER_LINE*sizeof(word_t)); //let us assume that WORDS_PER_LINE*sizeof(word_t) is not going to overflow
+	uint32_t addr = compute_addr_line_aligned(phy_addr,L1_DCACHE_WORDS_PER_LINE);//gets the word addressed phy addr and sets memory to line
+	access_memory(line, (word_t*)(mem_space) + addr, L1_DCACHE_WORDS_PER_LINE);//let's assume that WORDS_PER_LINE*sizeof(word_t) is not going to overflow
 	}
 void read_memory(void * mem_space, uint32_t phy_addr, word_t* line) {
-	uint32_t addr = ((phy_addr/sizeof(word_t))/L2_CACHE_WORDS_PER_LINE)*L2_CACHE_WORDS_PER_LINE  ;       //gets the word addressed phy addr and sets line using memory   
-	memcpy (line, (word_t*)(mem_space) + addr,L2_CACHE_WORDS_PER_LINE*sizeof(word_t)); //let us assume that WORDS_PER_LINE*sizeof(word_t) is not going to overflow
+	uint32_t addr = compute_addr_line_aligned(phy_addr,L2_CACHE_WORDS_PER_LINE);//gets the word addressed phy addr and sets line using memory   
+	access_memory((word_t*)(mem_space) + addr, line, L2_CACHE_WORDS_PER_LINE); //let us assume that WORDS_PER_LINE*sizeof(word_t) is not going to overflow
 	}
 
 //=========================================================================
@@ -631,10 +647,8 @@ int cache_write(void * mem_space,phy_addr_t * paddr, void * l1_cache,
 	const uint32_t * p_line = 0;//values that we use for using cache hit
 	uint8_t hit_way = 0;
 	uint16_t hit_index = 0;
-	//fprintf(stdout, "\n======================\n STARTING Tag = %x", phy_to_int(paddr));
 	if ((err = cache_hit(mem_space, l1_cache, paddr,&p_line,&hit_way,&hit_index, L1_DCACHE)) != ERR_NONE) return err;//error handling, check if we have a valid entry corresponding
 	if  (hit_way != HIT_WAY_MISS){//if found found in level 1
-	//	fprintf(stderr, "\n======================\n FOUNDL1 Tag = %x, way : %d", phy_to_int(paddr), hit_way);
 		  l1_dcache_entry_t entry = *cache_entry_any(l1_dcache_entry_t, L1_DCACHE_WAYS, hit_index, hit_way, l1_cache); //get the entry corresponding
 		  word_t* line = entry.line;
 		  line[extract_word_index(phy_addr,L1_DCACHE_WORDS_PER_LINE)] = *word; //update word in its line
@@ -646,7 +660,6 @@ int cache_write(void * mem_space,phy_addr_t * paddr, void * l1_cache,
 		
 		if((err = cache_hit(mem_space, l2_cache, paddr,&p_line,&hit_way,&hit_index, L2_CACHE)) != ERR_NONE) return err; //error handling, check if we have an entry in l2
 		if (hit_way != HIT_WAY_MISS) { // found in level 2 => find line, update ages,  move entry to level 1 , update memory
-			//fprintf(stderr, "\n======================\n FOUNDL2 Tag = %x, WORD value : %x, way : %d", phy_to_int(paddr), *word, hit_way );
 			l2_cache_entry_t entry = *cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way, l2_cache); //get the entry
 			word_t* line = entry.line;//get its line
 			line[extract_word_index(phy_addr,L2_CACHE_WORDS_PER_LINE)] = *word; // update word in line
@@ -656,7 +669,6 @@ int cache_write(void * mem_space,phy_addr_t * paddr, void * l1_cache,
 			write_memory(mem_space, phy_addr,line); // update memory 
 			}
 		else { // not found in L2 => search in memory
-			//fprintf(stderr, "\n======================\n NOFOUND Tag = %x, WORD value : %x", phy_to_int(paddr), *word );
 			word_t line[L1_ICACHE_WORDS_PER_LINE]; //init line to read from memory
 			read_memory(mem_space, phy_addr, line); // read line from memory
 			line[extract_word_index(phy_addr,L1_DCACHE_WORDS_PER_LINE)] = *word;//update word
@@ -664,15 +676,6 @@ int cache_write(void * mem_space,phy_addr_t * paddr, void * l1_cache,
 			l1_dcache_entry_t entry;
 			cache_entry_init(mem_space, paddr,&entry,L1_DCACHE); //init entry from memory (gets everything from mem)
 			if((err = insert_level1(DATA, l1_cache, l2_cache, &entry, phy_to_int(paddr))) != ERR_NONE) return err; //insert entry to l1
-			for(int i = 0; i < L2_CACHE_LINES ; i++){
-				foreach_way(wayy, L2_CACHE_WAYS){
-					l2_cache_entry_t* entr = cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, i, wayy, l2_cache);
-					if(!memcmp(line, entr->line, L1_ICACHE_WORDS_PER_LINE*sizeof(word_t)))
-						fprintf(stderr, "*******************************************************************\n INDEX : %d", i);
-					
-				}
-			}
-			
 			}
 		}
 	return ERR_NONE;
@@ -697,7 +700,6 @@ int cache_write_byte(void * mem_space, phy_addr_t * paddr, void * l1_cache,
 	M_REQUIRE_NON_NULL(l1_cache);	
 	M_REQUIRE_NON_NULL(l2_cache);	
 	M_REQUIRE(replace == LRU, ERR_BAD_PARAMETER, "replace is not a valid instance of cache_replace_t %c", ' ');
-	//fprintf(stderr, "*********************************************START OF CACHE WRITE BYTE*******************************************\n");
 	int err = 0; //for error propagation
 	word_t word = 0; //word that will be read from cache
 	int byte_index = paddr->page_offset % sizeof(word_t); //index location of byte
@@ -709,8 +711,6 @@ int cache_write_byte(void * mem_space, phy_addr_t * paddr, void * l1_cache,
 	byte_t* word_byte = (byte_t*)&word;
 	word_byte[byte_index] = p_byte;  //set the byte wanted inside the word
 	if ((err = cache_write(mem_space,&p_paddr,l1_cache, l2_cache, &word, replace)) != ERR_NONE) return err;//error propagation, write word back in memory
-	
-	
 	return ERR_NONE;					 
 	}
 
