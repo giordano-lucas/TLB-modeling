@@ -31,9 +31,9 @@
  */
 #define compute_addr_line_aligned(phy_addr,WORDS_PER_LINE) (((phy_addr/sizeof(word_t))/WORDS_PER_LINE)*WORDS_PER_LINE)
 /**
- * @brief function that accesses memory 
+ * @brief function that accesses memory, simply copies a whole line of words from dest to src 
  */
-void access_memory(word_t* src, word_t* dest, uint8_t WORDS_PER_LINE){
+void access_memory(const word_t* src, word_t* dest, uint8_t WORDS_PER_LINE){
 	memcpy (dest, src, WORDS_PER_LINE*sizeof(word_t));
 	}
 /*******************************************************************/
@@ -65,6 +65,9 @@ void access_memory(word_t* src, word_t* dest, uint8_t WORDS_PER_LINE){
         cache_entry_any(TYPE, WAYS, LINE_INDEX, WAY, CACHE)->line
 // --------------------------------------------------
 
+/**
+ * @brief debug function and macro to print an entry 
+ */
 #define print_entry_generic(TYPE, entry) \
 		fprintf(stderr, "Type : "#TYPE", Valid : %d, Age : %d, Tag : %"PRIx32", Data [", entry->v, entry->age, entry->tag); \
 		for(int i = 0; i < L1_DCACHE_WORDS_PER_LINE; i++)										\
@@ -610,11 +613,27 @@ int cache_read_byte(const void * mem_space, phy_addr_t * p_paddr, mem_access_t a
 }
 
 //=========================================================================
-
+/**
+ * @brief Writes a whole line to memory at the address given by the phy_addr
+ *
+ * @param mem_space pointer to the memory space
+ * @param paddr uint corresponding to a physical address
+ * @param line pointer to the line to write to the memory
+ * @return nothing (void)
+ */
 void write_memory(void * mem_space, uint32_t phy_addr, word_t* line) {
 	uint32_t addr = compute_addr_line_aligned(phy_addr,L1_DCACHE_WORDS_PER_LINE);//gets the word addressed phy addr and sets memory to line
 	access_memory(line, (word_t*)(mem_space) + addr, L1_DCACHE_WORDS_PER_LINE);//let's assume that WORDS_PER_LINE*sizeof(word_t) is not going to overflow
 	}
+	
+/**
+ * @brief Reads a whole line in memory at the address given by the phy_addr
+ *
+ * @param mem_space pointer to the memory space
+ * @param paddr uint corresponding to a physical address
+ * @param line pointer to the line to set after reading the memory
+ * @return nothing (void)
+ */
 void read_memory(void * mem_space, uint32_t phy_addr, word_t* line) {
 	uint32_t addr = compute_addr_line_aligned(phy_addr,L2_CACHE_WORDS_PER_LINE);//gets the word addressed phy addr and sets line using memory   
 	access_memory((word_t*)(mem_space) + addr, line, L2_CACHE_WORDS_PER_LINE); //let us assume that WORDS_PER_LINE*sizeof(word_t) is not going to overflow
