@@ -601,13 +601,13 @@ int cache_read_byte(const void * mem_space, phy_addr_t * p_paddr, mem_access_t a
 	M_REQUIRE(access == INSTRUCTION || access == DATA, ERR_BAD_PARAMETER, "access is not a valid instance of mem_access_t %c", ' ');
 	int err = ERR_NONE; //used for error propagation
 	
-	word_t word = 0; //word we will read from cache
-	int byte_index = p_paddr->page_offset % sizeof(word_t); //index of the byte inside of the word
-	phy_addr_t paddr = *p_paddr; //value of paddr from pointer
-	paddr.page_offset -= byte_index; //remove the byte index to use cache read
+	word_t word = 0;                                         //word that we will read from cache
+	int byte_index = p_paddr->page_offset % sizeof(word_t);  //index of the byte inside of the word
+	phy_addr_t paddr = *p_paddr;                             //value of paddr from pointer
+	paddr.page_offset -= byte_index;                         //remove the byte index to use cache read
 	if ((err = cache_read(mem_space,&paddr, access,l1_cache, l2_cache, &word, replace)) != ERR_NONE) return err;//error propagation, read word from memory
-	byte_t* word_as_byte = (byte_t*)&word; //cast to byte to get the byte we want only
-	*p_byte = word_as_byte[byte_index]; //get the byte we want
+	byte_t* word_as_byte = (byte_t*)&word;                   //cast to byte to get the byte we want only
+	*p_byte = word_as_byte[byte_index];                      //get the byte we want
 	
 	return ERR_NONE;
 }
@@ -616,11 +616,11 @@ int cache_read_byte(const void * mem_space, phy_addr_t * p_paddr, mem_access_t a
 
 void write_memory(void * mem_space, uint32_t phy_addr, word_t* line) {
 	uint32_t addr = compute_addr_line_aligned(phy_addr,L1_DCACHE_WORDS_PER_LINE);//gets the word addressed phy addr and sets memory to line
-	access_memory(line, (word_t*)(mem_space) + addr, L1_DCACHE_WORDS_PER_LINE);//let's assume that WORDS_PER_LINE*sizeof(word_t) is not going to overflow
+	access_memory(line, (word_t*)(mem_space) + addr, L1_DCACHE_WORDS_PER_LINE);  //let's assume that WORDS_PER_LINE*sizeof(word_t) is not going to overflow
 	}
 void read_memory(void * mem_space, uint32_t phy_addr, word_t* line) {
-	uint32_t addr = compute_addr_line_aligned(phy_addr,L2_CACHE_WORDS_PER_LINE);//gets the word addressed phy addr and sets line using memory   
-	access_memory((word_t*)(mem_space) + addr, line, L2_CACHE_WORDS_PER_LINE); //let us assume that WORDS_PER_LINE*sizeof(word_t) is not going to overflow
+	uint32_t addr = compute_addr_line_aligned(phy_addr,L2_CACHE_WORDS_PER_LINE); //gets the word addressed phy addr and sets line using memory   
+	access_memory((word_t*)(mem_space) + addr, line, L2_CACHE_WORDS_PER_LINE);   //let us assume that WORDS_PER_LINE*sizeof(word_t) is not going to overflow
 	}
 
 //=========================================================================
@@ -731,7 +731,6 @@ int cache_write_byte(void * mem_space, phy_addr_t * paddr, void * l1_cache,
 	
 	return ERR_NONE;					 
 	}
-
 
 //=========================================================================
 #define PRINT_CACHE_LINE(OUTFILE, TYPE, WAYS, LINE_INDEX, WAY, WORDS_PER_LINE) \
