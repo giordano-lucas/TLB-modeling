@@ -452,7 +452,8 @@ int insert_level1(mem_access_t access,void * l1_cache, void * l2_cache, void* en
 	/* cast it */                                                                                                  \
 	cache_init_entry_with_param(&l1_entry, phy_addr, l2_entry->line, L2_CACHE_WORDS_PER_LINE, TAG_REMAINING_BITS)  \
 	/* insert new entry in l1_cache and if needed, do the error propagation*/                                      \
-	int err = ERR_NONE;                                                                                            \
+	int err = ERR_NONE; 																						\
+	(l2_entry)->v = 0;      /*invalidate l2_entry*/                                                                 \
 	if ((err = insert_level1(access,l1_cache, l2_cache, &l1_entry, phy_addr))!= ERR_NONE) return err; 
 
 /**
@@ -471,15 +472,6 @@ int move_entry_to_level1(mem_access_t access,void * l1_cache, void * l2_cache, l
 		case DATA       : {move_entry_to_level1_generic(access, l1_dcache_entry_t, l2_entry,l1_cache, l2_cache, phy_addr, L1_DCACHE_TAG_REMAINING_BITS);}break;
 		default: return ERR_BAD_PARAMETER; break;
 		}
-	l2_entry->v = 0; //invalidate l2_entry 
-
-	uint16_t line_index = extract_line_index(phy_addr, L2_CACHE_WORDS_PER_LINE, L2_CACHE_LINES);
-	foreach_way(w, L2_CACHE_WAYS){
-		l2_cache_entry_t* ent = cache_entry_any(l2_cache_entry_t, L2_CACHE_WAYS, line_index, w, l2_cache);
-		if(ent->v && ent->age > l2_entry->age){
-			ent->age--;
-		}
-	}
 
 	return ERR_NONE;
 	}
