@@ -75,10 +75,10 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
  * if the entry is valid and the tag is correct => it's a hit and we update paddr else it's a miss
  * if init_phy_addr fails we return 0 (MISS)
  */
-#define hit_generic(type, tlb, vaddr, paddr, LINES_BITS, NB_LINES)                             \
+#define hit_generic(type, tlb, vaddr, paddr, TLB_TYPE)        				                     \
 	uint64_t addr = virt_addr_t_to_virtual_page_number(vaddr);                                 \
-	uint32_t tag = (addr) >> (LINES_BITS);                                                     \
-	uint8_t  line = (addr) % (NB_LINES);                                                       \
+	uint32_t tag = (addr) >> (TLB_TYPE ## _LINES_BITS);                                                     \
+	uint8_t  line = (addr) % (TLB_TYPE ## _LINES);                                                       \
 	type entry = ((type*) tlb)[line];                                                          \
 	if (entry.tag == tag && entry.v == 1) {                                                    \
 		int err = init_phy_addr(paddr, entry.phy_page_num << PAGE_OFFSET, vaddr->page_offset); \
@@ -100,7 +100,7 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
  * @param tlb_type : must be a valid instance of tlb_t
  * @return HIT (1) or MISS (0)
  */
-
+//note au correcteur : comment rendre cette méthode plus modulaire ?
 int tlb_hit( const virt_addr_t * vaddr, phy_addr_t * paddr, const void  * tlb, tlb_t tlb_type){
 	if(vaddr == NULL || paddr == NULL || tlb == NULL)return MISS;
 	// check that tlb_type is a valid instance of tlb_t
@@ -108,9 +108,9 @@ int tlb_hit( const virt_addr_t * vaddr, phy_addr_t * paddr, const void  * tlb, t
 	
 	// for each tlb type call the generic macro defined before
 	switch (tlb_type) {
-        case L1_ITLB : { hit_generic(l1_itlb_entry_t, tlb, vaddr, paddr, L1_ITLB_LINES_BITS, L1_ITLB_LINES);} break;
-        case L1_DTLB : { hit_generic(l1_dtlb_entry_t, tlb, vaddr, paddr, L1_DTLB_LINES_BITS, L1_DTLB_LINES);} break;
-        case L2_TLB  : { hit_generic(l2_tlb_entry_t , tlb, vaddr, paddr, L2_TLB_LINES_BITS , L2_TLB_LINES );} break;
+        case L1_ITLB : { hit_generic(l1_itlb_entry_t, tlb, vaddr, paddr, L1_ITLB);} break;
+        case L1_DTLB : { hit_generic(l1_dtlb_entry_t, tlb, vaddr, paddr, L1_DTLB);} break;
+        case L2_TLB  : { hit_generic(l2_tlb_entry_t , tlb, vaddr, paddr, L2_TLB );} break;
         default      : return MISS; break;
     }
     // should not arrive here since each switch case contains a return (see macro expansion)
@@ -130,8 +130,8 @@ int tlb_hit( const virt_addr_t * vaddr, phy_addr_t * paddr, const void  * tlb, t
  * it first validate line_index since line_index sould be smaller that NB_LINES
  * then it casts tlb and indexes it to update it with the new entry (that also need to be casted)
  */
-#define insert_generic(type, tlb, tlb_entry, line_index, NB_LINES)                                                  \
-	M_REQUIRE(line_index < NB_LINES, ERR_BAD_PARAMETER, "%"PRIx32" should be smaller than " #NB_LINES, line_index); \
+#define insert_generic(type, tlb, tlb_entry, line_index, TLB_TYPE)                                                  \
+	M_REQUIRE(line_index < (TLB_TYPE ## _LINES), ERR_BAD_PARAMETER, "%"PRIx32" should be smaller than %d", line_index, (TLB_TYPE ## _LINES)); \
 	((type*)tlb)[line_index] = *((type*)tlb_entry);                                                                 \
 	return ERR_NONE;                                                                                                
 
@@ -146,7 +146,7 @@ int tlb_hit( const virt_addr_t * vaddr, phy_addr_t * paddr, const void  * tlb, t
  * @param tlb_type : must be a valid instance of tlb_t
  * @return  error code
  */
-
+//note au correcteur : comment rendre cette méthode plus modulaire ?
 int tlb_insert(uint32_t line_index, const void * tlb_entry, void * tlb,tlb_t tlb_type){
 	M_REQUIRE_NON_NULL(tlb);
 	M_REQUIRE_NON_NULL(tlb_entry);
@@ -155,9 +155,9 @@ int tlb_insert(uint32_t line_index, const void * tlb_entry, void * tlb,tlb_t tlb
 	
 	// for each tlb type call the generic macro defined above
 	switch (tlb_type) {
-        case L1_ITLB : insert_generic(l1_itlb_entry_t, tlb, tlb_entry, line_index, L1_ITLB_LINES); break;
-        case L1_DTLB : insert_generic(l1_dtlb_entry_t, tlb, tlb_entry, line_index, L1_DTLB_LINES); break;
-        case L2_TLB  : insert_generic(l2_tlb_entry_t , tlb, tlb_entry, line_index, L2_TLB_LINES) ; break;
+        case L1_ITLB : insert_generic(l1_itlb_entry_t, tlb, tlb_entry, line_index, L1_ITLB); break;
+        case L1_DTLB : insert_generic(l1_dtlb_entry_t, tlb, tlb_entry, line_index, L1_DTLB); break;
+        case L2_TLB  : insert_generic(l2_tlb_entry_t , tlb, tlb_entry, line_index, L2_TLB) ; break;
         default      : return ERR_BAD_PARAMETER; break;
     }
     // should not arrive here since each switch case contains a return (see macro expansion)
@@ -181,9 +181,9 @@ int tlb_insert(uint32_t line_index, const void * tlb_entry, void * tlb,tlb_t tlb
  * the error. This is done because  virt_addr_t_to_virtual_page_number returns a value and we cannot 
  * distinguish normal values from errors
  */		
-#define init_generic(type, tlb_entry, LINES_BITS, vaddr, paddr)                 \
+#define init_generic(type, tlb_entry, TLB_TYPE, vaddr, paddr)                 \
 		type* entry = (type*)(tlb_entry);                                       \
-		entry->tag = virt_addr_t_to_virtual_page_number(vaddr) >> (LINES_BITS); \
+		entry->tag = virt_addr_t_to_virtual_page_number(vaddr) >> (TLB_TYPE ## _LINES_BITS); \
 		entry->phy_page_num = (paddr)->phy_page_num;                            \
 		entry->v = 1;                                                           
 		
@@ -198,7 +198,7 @@ int tlb_insert(uint32_t line_index, const void * tlb_entry, void * tlb,tlb_t tlb
  * @param tlb_type  : must be a valid instance of tlb_t
  * @return  error code
  */
-
+//note au correcteur : comment la rendre plus modulaire ?
 int tlb_entry_init( const virt_addr_t * vaddr, const phy_addr_t * paddr, void * tlb_entry,tlb_t tlb_type){
 	M_REQUIRE_NON_NULL(vaddr);
 	M_REQUIRE_NON_NULL(paddr);
@@ -207,9 +207,9 @@ int tlb_entry_init( const virt_addr_t * vaddr, const phy_addr_t * paddr, void * 
 	M_REQUIRE(L1_ITLB <= tlb_type && tlb_type <= L2_TLB, ERR_BAD_PARAMETER, "%d is not a valid tlb_type \n", tlb_type);
 	// for each tlb type call the generic macro defined above
 	switch (tlb_type){
-		case L1_ITLB : { init_generic(l1_itlb_entry_t, tlb_entry, L1_ITLB_LINES_BITS, vaddr, paddr);} break;
-		case L1_DTLB : { init_generic(l1_dtlb_entry_t, tlb_entry, L1_DTLB_LINES_BITS, vaddr, paddr);} break;
-		case L2_TLB  : { init_generic(l2_tlb_entry_t , tlb_entry, L2_TLB_LINES_BITS , vaddr, paddr);} break;
+		case L1_ITLB : { init_generic(l1_itlb_entry_t, tlb_entry, L1_ITLB, vaddr, paddr);} break;
+		case L1_DTLB : { init_generic(l1_dtlb_entry_t, tlb_entry, L1_DTLB, vaddr, paddr);} break;
+		case L2_TLB  : { init_generic(l2_tlb_entry_t , tlb_entry, L2_TLB, vaddr, paddr);} break;
 		default      : return ERR_BAD_PARAMETER; break;
 		}
 	// here the return is needed since the macro does not return anything
@@ -263,7 +263,7 @@ int tlb_entry_init( const virt_addr_t * vaddr, const phy_addr_t * paddr, void * 
  * @param hit_or_miss (modified) hit (1) or miss (0)
  * @return error code
  */
-
+//note au correcteur : comment rendre cette méthode plus modulaire ?
 int tlb_search( const void * mem_space,const virt_addr_t * vaddr, phy_addr_t * paddr, mem_access_t access, l1_itlb_entry_t * l1_itlb, 
 				l1_dtlb_entry_t * l1_dtlb, l2_tlb_entry_t * l2_tlb, int* hit_or_miss){
 		M_REQUIRE_NON_NULL(mem_space);
