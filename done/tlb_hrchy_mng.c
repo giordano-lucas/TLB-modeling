@@ -228,9 +228,7 @@ int tlb_entry_init( const virt_addr_t * vaddr, const phy_addr_t * paddr, void * 
 
 	#define invalidate(tlb,vaddr,TLB_LINES) \
 	uint8_t index = virt_addr_t_to_virtual_page_number(vaddr) % TLB_LINES;\
-	if((previouslyValid && tlb[index].v && (tlb[index].tag >> 2== previousTag))) tlb[index].v = 0;\
-	
-	//if((previouslyValid && tlb[index].v && (tlb[index].tag >> 2== previousTag)) || needEviction) tlb[index].v = 0;
+	if((previouslyValid && tlb[index].v && (tlb[index].tag >> 2== previousTag))) tlb[index].v = 0;
 /**
  * @brief Creates and inserts a tlb entry into the tlb given as argument
  * 
@@ -283,7 +281,7 @@ int tlb_search( const void * mem_space,const virt_addr_t * vaddr, phy_addr_t * p
 		*hit_or_miss = tlb_hit(vaddr, paddr, l2_tlb, L2_TLB);//else search for it in lvl2
 		uint8_t previouslyValid = 0;//previouslyValid and tag exist to check whether to invalidate the lvl1 tlb entry or not
 		uint32_t previousTag = 0;
-		//bool needEviction = true;
+		
 		if(!*hit_or_miss){ //do page_walk if not found
 			M_REQUIRE(page_walk(mem_space, vaddr, paddr) == ERR_NONE, ERR_MEM, "Couldnt find the paddr corresponding to this vaddr", ""); //page walk to get the right paddr since we havent found
 
@@ -295,7 +293,6 @@ int tlb_search( const void * mem_space,const virt_addr_t * vaddr, phy_addr_t * p
 			//check if there was a previously valid entry at this part
 			previouslyValid = l2_tlb[line].v; //init previouslyValid and tag
 			previousTag = (l2_tlb[line].tag);
-			//needEviction = false; //boolean that tells us whether we also need to evict
 			if ((err = tlb_insert(line, &entry, l2_tlb, L2_TLB)) != ERR_NONE) {return err;}//inserts the new entry in the lvl2 tlb propagate error if needed
 		}
 		if(access == INSTRUCTION){

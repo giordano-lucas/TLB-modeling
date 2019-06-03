@@ -117,9 +117,6 @@ int main(int argc, char *argv[])
             assert(cache_flush(l1_dcache, L1_DCACHE) == ERR_NONE);
             assert(cache_flush(l2_cache, L2_CACHE) == ERR_NONE);
 			
-			/*//*/
-			//program_print(stdout, &pgm);
-			//printf("========================\n");
             for_all_lines(line, &pgm) {
                 execute_command(mem_space, line, l1_icache, l1_dcache, l2_cache);
 
