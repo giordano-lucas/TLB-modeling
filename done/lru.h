@@ -13,8 +13,8 @@
 #define LRU_age_increase(TYPE, WAYS, WAY_INDEX, LINE_INDEX)                       \
 	foreach_way(way, WAYS){	                                                      \
 	        TYPE* entry = cache_entry(TYPE, WAYS, LINE_INDEX, way);               \
-			if (way == (WAY_INDEX)) {entry->age = 0;}                         \
-			else if (entry->age < ((WAYS)-1)) {(entry->age)+=1;}              \
+			if (way == (WAY_INDEX)) {entry->age = 0;}                             \
+			else if (entry->age < ((WAYS)-1)) {(entry->age)+=1;}                  \
 		}
 
 /**
@@ -26,8 +26,8 @@
  */
 #define LRU_age_update(TYPE, WAYS, WAY_INDEX, L_INDEX)                       \
 	uint8_t compare_age = cache_age(TYPE, WAYS, L_INDEX, WAY_INDEX);         \
-	foreach_way(way, WAYS){	   												\
+	foreach_way(way, WAYS){	   											   	 \
 		    TYPE* entry = cache_entry(TYPE, WAYS, L_INDEX, way);             \
-			if (way == (WAY_INDEX)) {entry->age = 0;}                      \
-			else if (entry->age < compare_age) {(entry->age)++;}            \
+			if (way == (WAY_INDEX)) {entry->age = 0;}                        \
+			else if (entry->age < compare_age) {(entry->age)++;}             \
 		}
