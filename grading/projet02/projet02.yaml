@@ -83,20 +83,20 @@
 - tlb_hrchy.h: 13         # max 13, 
 - tlb_hrchy_mng.c: # NE PAS REMPLIR CETTE LIGNE
     - tlb_entry_init(): # NE PAS REMPLIR CETTE LIGNE
-        macros: 3           # max 5, can be even more generic/modular -2
+        macros: 5           # max 5,
         vérifications: 2    # max 2, 
         coeur: 7.5            # max 7.5, 
     - tlb_flush(): 7.5      # max 7.5, 
     - tlb_insert(): # NE PAS REMPLIR CETTE LIGNE
-        macros: 2           # max 3, can be even more generic/modular -1
+        macros: 3           # max 3, 
         vérifications: 2    # max 2, 
         coeur: 7.5            # max 7.5, 
     - tlb_hit(): # NE PAS REMPLIR CETTE LIGNE
-        macros: 4           # max 6, can be even more generic/modular -2
+        macros: 6           # max 6,
         vérifications: 3    # max 3, 
         coeur: 15            # max 15, 
     - tlb_search(): # NE PAS REMPLIR CETTE LIGNE
-        macros: 6                    # max 9, can be even more generic/modular -3
+        macros: 9                    # max 9,
         vérifications: 8             # max 8, 
         hits: 6                      # max 6, 
         L2 vers L1: 8                # max 8, 
