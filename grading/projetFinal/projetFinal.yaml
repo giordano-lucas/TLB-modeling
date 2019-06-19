@@ -1,0 +1,178 @@
+- README: 5 # max 5, 
+- Makefile: 3           # max 3, 
+- addr.h: # NE PAS REMPLIR CETTE LIGNE
+    trois typedef: 3    # max 3, 
+    virt_addr_t: 5      # max 5, 
+    phy_addr_t: 5       # max 5, 
+- addr_mng.c: # NE PAS REMPLIR CETTE LIGNE
+  - init_virt_addr(): 6                        # max 6, 
+  - init_virt_addr64(): 6                      # max 6, 
+  - init_phy_addr(): 4                         # max 4,
+  - virt_addr_t_to_uint64_t(): 5               # max 5, 
+  - virt_addr_t_to_virtual_page_number(): 5    # max 5, 
+  - print_virtual_address(): 3                 # max 3, 
+  - print_physical_address(): 3                # max 3,
+- commands.h: # NE PAS REMPLIR CETTE LIGNE
+    command_word_t: 2    # max 2, 
+    command_t: 7         # max 7, 
+    program_t: 5         # max 5, 
+- commands.c: # NE PAS REMPLIR CETTE LIGNE
+  - program_print(): 7          # max 7,
+  - program_init(): 6           # max 6,
+  - program_add_command(): 16    # max 16,
+  - program_shrink(): 6         # max 6,
+  - program_read(): # NE PAS REMPLIR CETTE LIGNE
+      modularisation: 5               # max 5,
+      get_next_nonspace_char(): 3     # max 3, 
+      do_D(): 8                       # max 8, 
+      do_R(): 8                       # max 8,
+      do_W(): 8                       # max 8,
+      command_line_read(): 10          # max 10,
+      core: 11                         # max 11,
+  - program_free(): 6                 # max 6,
+- memory.c: # NE PAS REMPLIR CETTE LIGNE
+  - mem_init_from_dumpfile(): # NE PAS REMPLIR CETTE LIGNE
+      vérifications d\'usage: 2    # max 2, 
+      ouverture fichier: 5         # max 5, 
+      allocation mémoire: 5        # max 5,
+      lecture fichier: 5           # max 5,
+      fermeture fichier: 2         # max 2,
+  - mem_init_from_description(): # NE PAS REMPLIR CETTE LIGNE
+      vérifications d\'usage: 2      # max 2,
+      ouverture fichier: 5           # max 5,
+      allocation mémoire: 5          # max 5,
+      lecture PGD page filename: 5   # max 5, 
+      page_file_read(): 8            # max 8, 
+      lecture PUDs: 15                # max 15,
+      lecture pages data: 15          # max 15,
+      fermeture fichier: 2           # max 2,
+- page_walk.c: # NE PAS REMPLIR CETTE LIGNE
+    read_page_entry(): 2    # max 2, 
+    page_walk(): 12          # max 12,
+- list.c: # NE PAS REMPLIR CETTE LIGNE
+    - is_empty_list: 7.5         # max 7.5, 
+    - init_list: 7.5             # max 7.5, 
+    - clear_list: 10            # max 10, 
+    - push_back: # NE PAS REMPLIR CETTE LIGNE
+        new node: 7.5            # max 7.5, 
+        insert after: 7.5        # max 7.5, 
+        main part: 5           # max 5, 
+    - push_front: # NE PAS REMPLIR CETTE LIGNE
+        insert before: 7.5       # max 7.5, 
+        main part: 5           # max 5, 
+    - pop_back: # NE PAS REMPLIR CETTE LIGNE
+        remove node: 7.5        # max 7.5, 
+        main part: 7.5          # max 7.5, 
+    - pop_front: 7.5          # max 7.5, 
+    - move_back: 15             # max 15, 
+    - print_list: 7.5            # max 7.5, 
+    - print_reverse_list: 3    # max 3, 
+    - modularisation: 1.5        # max 7.5, createNode +1.5
+- tlb_mng.h: 7              # max 7, 
+- tlb.h: 5                  # max 5, 
+- tlb_mng.c: # NE PAS REMPLIR CETTE LIGNE
+    - tlb_entry_init(): 7.5    # max 7.5, 
+    - tlb_flush(): 7.5         # max 7.5, 
+    - tlb_insert(): 7.5        # max 7.5, 
+    - tlb_hit(): 20           # max 20, 
+    - tlb_search(): # NE PAS REMPLIR CETTE LIGNE
+        vérifications: 5    # max 5, 
+        hit: 2.5              # max 2.5, 
+        page_walker: 2.5      # max 2.5, 
+        new entry: 9        # max 10, missing test and error propagation from tbl_insert -1
+- tlb_hrchy.h: 13         # max 13, 
+- tlb_hrchy_mng.c: # NE PAS REMPLIR CETTE LIGNE
+    - tlb_entry_init(): # NE PAS REMPLIR CETTE LIGNE
+        macros: 5           # max 5,
+        vérifications: 2    # max 2, 
+        coeur: 7.5            # max 7.5, 
+    - tlb_flush(): 7.5      # max 7.5, 
+    - tlb_insert(): # NE PAS REMPLIR CETTE LIGNE
+        macros: 3           # max 3, 
+        vérifications: 2    # max 2, 
+        coeur: 7.5            # max 7.5, 
+    - tlb_hit(): # NE PAS REMPLIR CETTE LIGNE
+        macros: 6           # max 6,
+        vérifications: 3    # max 3, 
+        coeur: 15            # max 15, 
+    - tlb_search(): # NE PAS REMPLIR CETTE LIGNE
+        macros: 9                    # max 9,
+        vérifications: 8             # max 8, 
+        hits: 6                      # max 6, 
+        L2 vers L1: 8                # max 8, 
+        page_walker: 3               # max 3, 
+        new L2 entry: 7.5              # max 7.5, 
+        insert in L1: 7.5              # max 7.5, 
+        eviction in other L1: 15      # max 15,
+- cache.h: # NE PAS REMPLIR CETTE LIGNE
+    l1_icache_entry_t: 5      # max 5, 
+    l1_dcache_entry_t: 2      # max 2, 
+    l2_cache_entry_t: 3       # max 3, 
+    cache_t: 3                # max 3, 
+- lru.h: # NE PAS REMPLIR CETTE LIGNE
+    - lru_age_update(): 15         # max 15, 
+    - lru_age_increase(): 15       # max 15, 
+- cache_mng.c: # NE PAS REMPLIR CETTE LIGNE
+    - cache_entry_init(): # NE PAS REMPLIR CETTE LIGNE
+        phys. addr. to 32 bits: 5   # max  5, 
+        macros: 3                   # max  3, 
+        requirements: 4             # max  4, 
+        core: 10                     # max 10, 
+    - cache_flush(): 10         # max 10, 
+    - cache_insert(): # NE PAS REMPLIR CETTE LIGNE
+        macros: 3               # max 3, 
+        requirements: 7         # max 7, 
+        core: 5                 # max 5,
+    - cache_hit(): # NE PAS REMPLIR CETTE LIGNE
+        macros: 5               # max  5, 
+        requirements: 6         # max  6, 
+        cache_walk: 15           # max 15, 
+        rest of core: 10         # max 10, 
+    - find free way: # NE PAS REMPLIR CETTE LIGNE
+        modularisation: 5   # max  5, 
+        core: 10             # max 10, 
+    - age update: # NE PAS REMPLIR CETTE LIGNE
+        modularisation: 5   # max 5, 
+        core: 5             # max 5, 
+    - cache eviction: # NE PAS REMPLIR CETTE LIGNE
+        modularisation: 5   # max  5, 
+        core: 15             # max 15, 
+    - insert into L1: # NE PAS REMPLIR CETTE LIGNE
+        modularisation: 5                   # max  5, 
+        case free line: 10                   # max 10, 
+        evict from L1: 10                    # max 10, 
+        insert into L1: 10                   # max 10, 
+        search in L2 (L1 eviction): 20       # max 20, 
+        case free line in L2: 10             # max 10, 
+        case evict from L2: 20               # max 20,
+    - memory to L1: # NE PAS REMPLIR CETTE LIGNE
+        modularisation: 5        # max  5, 
+        create from memory: 10    # max 10, 
+        insert into L1: 2        # max  2, 
+    - L2 to L1: # NE PAS REMPLIR CETTE LIGNE
+        modularisation: 5           # max  5, 
+        create from L2: 20           # max 20, 
+        set invalid in L2: 5        # max  5, 
+        insert into L1: 2           # max  2, 
+    - cache_read(): # NE PAS REMPLIR CETTE LIGNE
+        macros: 8                    # max  8, 
+        requirements: 10              # max 10, 
+        core algorithm: 15            # max 15, 
+        copy word from line: 10       # max 10,
+    - cache_read_byte(): # NE PAS REMPLIR CETTE LIGNE
+        requirements: 5        # max  5, 
+        core: 20                # max 20,
+    - cache_write(): # NE PAS REMPLIR CETTE LIGNE
+        requirements: 9              # max  9, 
+        check L1 hit: 10              # max 10, 
+        write when L1 hit: 20         # max 20, 
+        check L2 hit: 5              # max  5, 
+        write when L2 hit: 25         # max 25, 
+        write when both miss: 20      # max 20, 
+    - cache_write_byte(): # NE PAS REMPLIR CETTE LIGNE
+        requirements: 4              # max  4, 
+        core: 20                      # max 20, 
+- styleTA: 1        # max 2, min -2, 
+- bonus/malusTA: 3  # max 5, min -5, 
+- style: 1        # max 2, min -2, 
+- bonus/malus: 0  # max 5, min -5, modularity of program_print +1, several auxiliary functions +1, testing that an unsigned is non-negative -1, still hardcoded values instead of constants / macros in commands.c -1
